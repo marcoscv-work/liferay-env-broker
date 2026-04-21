@@ -502,6 +502,8 @@ class Broker:
                         record["target_ip"] = self._docker_inspect_network_ip(record["container_name"])
                         self._update_record(record)
                     self._ensure_proxy(record)
+                    if record.get("status") == "starting":
+                        threading.Thread(target=self._wait_until_ready, args=(record["id"],), daemon=True, name=f"ready-{record['id']}").start()
                 except Exception:
                     record["status"] = "failed"
                     record["error"] = "Could not restore proxy after broker restart"
