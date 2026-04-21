@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 import requests
 import yaml
@@ -232,8 +232,9 @@ class Broker:
 
     def _docker_container_running(self, container_name: str) -> bool:
         try:
-            result = self._docker(["inspect", container_name, "--format", "{{.State.Running}}"])
-            return result.stdout.strip().lower() == "true"
+            result = self._docker(["inspect", container_name, "--format", "{{.State.Status}} {{.State.Restarting}}"])
+            status, restarting = result.stdout.strip().lower().split(maxsplit=1)
+            return status == "running" and restarting == "false"
         except subprocess.CalledProcessError:
             return False
 
@@ -334,6 +335,18 @@ class Broker:
         safe = "".join(ch if ch.isalnum() or ch in ["-", "_"] else "-" for ch in raw_name.lower())
         return safe[:50]
 
+    def _liferay_public_url_env(self, public_url: str) -> Dict[str, str]:
+        parsed = urlparse(public_url)
+        if not parsed.hostname:
+            return {}
+        env = {
+            "LIFERAY_WEB_PERIOD_SERVER_PERIOD_HOST": parsed.hostname,
+            "LIFERAY_WEB_PERIOD_SERVER_PERIOD_PROTOCOL": parsed.scheme or "http",
+        }
+        if parsed.port:
+            env["LIFERAY_WEB_PERIOD_SERVER_PERIOD_HTTP_PERIOD_PORT"] = str(parsed.port)
+        return env
+
     def _write_properties(self, env_id: str, content: Optional[str]) -> Optional[Path]:
         if not content:
             return None
@@ -356,7 +369,7 @@ class Broker:
         registry = self._read_registry()
         record = next((x for x in registry if x["id"] == env_id), None)
         if not record:
-            raise HTTPException(status_code=404, detail="Entorno no encontrado")
+            raise HTTPException(status_code=404, detail="Environment not found")
         record["status"] = status
         record["updated_at"] = iso_now()
         for key, value in extra.items():
@@ -395,7 +408,7 @@ class Broker:
             "idle_timeout_minutes": int(self.config["idle_timeout_minutes"]),
             "url": self.config["base_url_template"].format(port=host_port, container_name=container_name, env_id=env_id),
             "properties_file": str(properties_path) if properties_path else None,
-            "env": req.env,
+            "env": {},
             "db_mode": req.db_mode,
             "db_env": req.db_env if req.db_mode == "external" else {},
             "error": None,
@@ -411,9 +424,12 @@ class Broker:
             "--cpus", str(profile['cpus']),
         ]
 
-        all_env = dict(req.env)
+        all_env = self._liferay_public_url_env(record["url"])
+        all_env.update(req.env)
         if req.db_mode == "external":
             all_env.update(req.db_env)
+        record["env"] = all_env
+        self._update_record(record)
         for key, value in all_env.items():
             cmd += ["-e", f"{key}={value}"]
 
@@ -691,7 +707,7 @@ def ui() -> str:
     <div class=\"toolbar\">
       <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" style=\"min-width:240px\" />
       <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" style=\"min-width:240px\" />
-      <button onclick=\"loadAll()\">Conectar</button>
+      <button onclick=\"loadAll()\">Connect</button>
     </div>
   </div>
 
@@ -708,18 +724,18 @@ def ui() -> str:
         <option value=\"large\">large</option>
       </select>
       <select id=\"db_mode\">
-        <option value=\"none\" selected>sin DB externa</option>
-        <option value=\"external\">DB externa</option>
+        <option value=\"none\" selected>No external DB</option>
+        <option value=\"external\">External DB</option>
       </select>
-      <input id=\"port\" placeholder=\"puerto opcional\" />
-      <input id=\"ttl\" placeholder=\"ttl horas\" />
+      <input id=\"port\" placeholder=\"optional port\" />
+      <input id=\"ttl\" placeholder=\"ttl hours\" />
       <button onclick=\"createEnv()\">Create</button>
     </div>
-    <p class=\"small\">Las variables extra se indican en JSON simple.</p>
+    <p class=\"small\">Extra variables use plain JSON.</p>
     <div class=\"toolbar\" style=\"align-items:flex-start\">
       <textarea id=\"env\" placeholder='{"LIFERAY_JVM_OPTS":"-Xms2g -Xmx4g"}' rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
       <textarea id=\"db_env\" placeholder='{"LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL":"jdbc:postgresql://..."}' rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
-      <textarea id=\"props\" placeholder=\"portal-ext.properties opcional\" rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
+      <textarea id=\"props\" placeholder=\"optional portal-ext.properties\" rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
     </div>
   </div>
 
@@ -727,7 +743,7 @@ def ui() -> str:
   <table>
     <thead>
       <tr>
-        <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th>URL</th><th>Access</th><th>Created</th><th>Actions</th>
+        <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th style=\"min-width:200px\">URL</th><th>Access</th><th>Created</th><th>Actions</th>
       </tr>
     </thead>
     <tbody id=\"rows\"></tbody>
@@ -735,10 +751,27 @@ def ui() -> str:
 
 <script>
 const $ = (id) => document.getElementById(id);
-if (!$("baseUrl").value) {
-  $("baseUrl").value = window.location.origin;
+const storageKeys = {
+  baseUrl: "liferayBroker.baseUrl",
+  token: "liferayBroker.token",
+  user: "liferayBroker.user"
+};
+function restoreSavedInputs() {
+  $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
+  $("token").value = localStorage.getItem(storageKeys.token) || "";
+  $("user").value = localStorage.getItem(storageKeys.user) || "";
 }
+function saveInputs() {
+  localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
+  localStorage.setItem(storageKeys.token, $("token").value);
+  localStorage.setItem(storageKeys.user, $("user").value);
+}
+restoreSavedInputs();
+["baseUrl", "token", "user"].forEach((id) => {
+  $(id).addEventListener("input", saveInputs);
+});
 function authHeaders() {
+  saveInputs();
   return {
     "Authorization": `Bearer ${$("token").value}`,
     "Content-Type": "application/json"
@@ -759,7 +792,7 @@ async function api(path, options={}) {
 function renderStats(data) {
   const cards = [];
   cards.push(`<div class=\"card\"><strong>Total</strong><div>${data.total}</div></div>`);
-  cards.push(`<div class=\"card\"><strong>RAM disponible</strong><div>${data.memory.available_mb} MB</div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
+  cards.push(`<div class=\"card\"><strong>Available RAM</strong><div>${data.memory.available_mb} MB</div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
   for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card\"><strong>${k}</strong><div>${v}</div></div>`);
   $("stats").innerHTML = cards.join("");
 }
@@ -783,6 +816,7 @@ function renderRows(items) {
 }
 async function loadAll() {
   try {
+    saveInputs();
     const [stats, items] = await Promise.all([api('/v1/dashboard'), api('/v1/environments')]);
     renderStats(stats);
     renderRows(items);
@@ -809,7 +843,7 @@ async function createEnv() {
       portal_properties: $("props").value || null,
     };
     const result = await api('/v1/environments', {method:'POST', body: JSON.stringify(payload)});
-    setMessage(`Entorno ${result.id} creado con estado ${result.status}`);
+    setMessage(`Environment ${result.id} created with status ${result.status}`);
     await loadAll();
   } catch (e) {
     setMessage(e.message, true);
