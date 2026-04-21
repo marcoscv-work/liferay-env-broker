@@ -707,6 +707,7 @@ def ui() -> str:
     <div class=\"toolbar\">
       <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" style=\"min-width:240px\" />
       <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" style=\"min-width:240px\" />
+      <label class=\"small\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
       <button onclick=\"loadAll()\">Connect</button>
     </div>
   </div>
@@ -754,21 +755,28 @@ const $ = (id) => document.getElementById(id);
 const storageKeys = {
   baseUrl: "liferayBroker.baseUrl",
   token: "liferayBroker.token",
-  user: "liferayBroker.user"
+  user: "liferayBroker.user",
+  showHistory: "liferayBroker.showHistory"
 };
 function restoreSavedInputs() {
   $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
   $("token").value = localStorage.getItem(storageKeys.token) || "";
   $("user").value = localStorage.getItem(storageKeys.user) || "";
+  $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
 }
 function saveInputs() {
   localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
   localStorage.setItem(storageKeys.token, $("token").value);
   localStorage.setItem(storageKeys.user, $("user").value);
+  localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
 }
 restoreSavedInputs();
-["baseUrl", "token", "user"].forEach((id) => {
+["baseUrl", "token", "user", "showHistory"].forEach((id) => {
   $(id).addEventListener("input", saveInputs);
+  $(id).addEventListener("change", () => {
+    saveInputs();
+    if ($("token").value) loadAll();
+  });
 });
 function authHeaders() {
   saveInputs();
@@ -797,7 +805,10 @@ function renderStats(data) {
   $("stats").innerHTML = cards.join("");
 }
 function renderRows(items) {
-  $("rows").innerHTML = items.map(item => `
+  const visibleItems = $("showHistory").checked
+    ? items
+    : items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status));
+  $("rows").innerHTML = visibleItems.map(item => `
     <tr>
       <td>${item.id}<div class=\"small\">${item.container_name}</div></td>
       <td><span class=\"status ${item.status}\">${item.status}</span>${item.error ? `<div class=\"small\">${item.error}</div>` : ""}</td>
@@ -820,10 +831,14 @@ async function loadAll() {
     const [stats, items] = await Promise.all([api('/v1/dashboard'), api('/v1/environments')]);
     renderStats(stats);
     renderRows(items);
-    setMessage(`Loaded ${items.length} environments`);
+    setMessage(`Loaded ${visibleCount(items)} of ${items.length} environments`);
   } catch (e) {
     setMessage(e.message, true);
   }
+}
+function visibleCount(items) {
+  if ($("showHistory").checked) return items.length;
+  return items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status)).length;
 }
 function parseJsonSafe(text) {
   if (!text || !text.trim()) return {};
