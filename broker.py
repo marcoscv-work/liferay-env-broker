@@ -831,14 +831,14 @@ def ui() -> str:
       content: "";
       position: absolute;
       top: 50%;
-      right: calc(100% + 7px);
-      width: 10px;
-      height: 10px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      border-right: 1px solid var(--border);
+      right: calc(100% + 5px);
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 7px solid var(--surface);
       opacity: 0;
-      transform: translate(4px, -50%) rotate(45deg);
+      transform: translate(4px, -50%);
       transition: opacity 140ms ease 2s, transform 140ms ease 2s;
       pointer-events: none;
       z-index: 21;
@@ -851,7 +851,7 @@ def ui() -> str:
     .has-tooltip:hover::after,
     .has-tooltip:focus-visible::after {
       opacity: 1;
-      transform: translate(0, -50%) rotate(45deg);
+      transform: translate(0, -50%);
     }
     @media (max-width: 760px) {
       body { margin: 16px; }
