@@ -114,7 +114,7 @@ port_range:
   end: 18150
 default_ttl_hours: 8
 idle_timeout_minutes: 60
-max_environments_per_user: 2
+max_environments_per_user: 3
 ```
 
 Restart the service:

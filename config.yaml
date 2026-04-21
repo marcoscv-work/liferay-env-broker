@@ -32,7 +32,7 @@ ready_timeout_seconds: 300
 ready_check_interval_seconds: 5
 idle_timeout_minutes: 60
 ram_buffer_mb: 4096
-max_environments_per_user: 2
+max_environments_per_user: 3
 allowed_image_patterns:
 - ^liferay/dxp:.*$
 - ^liferay/portal:.*$
