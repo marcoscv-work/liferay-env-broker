@@ -808,7 +808,7 @@ def ui() -> str:
       content: attr(data-tooltip);
       position: absolute;
       top: 50%;
-      right: calc(100% + 12px);
+      right: calc(100% + 10px);
       width: max-content;
       max-width: 240px;
       padding: 8px 10px;
@@ -831,7 +831,7 @@ def ui() -> str:
       content: "";
       position: absolute;
       top: 50%;
-      right: calc(100% + 5px);
+      right: calc(100% + 3px);
       width: 0;
       height: 0;
       border-top: 7px solid transparent;
