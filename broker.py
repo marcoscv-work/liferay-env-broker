@@ -694,21 +694,96 @@ def ui() -> str:
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>Liferay Environment Broker</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; background: #f6f8fb; color: #1f2937; }
-    .top { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
-    input, button, select, textarea { padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; }
-    button { cursor:pointer; background:#0f62fe; color:white; border:none; }
-    button.secondary { background:#475569; }
+    :root {
+      --bg: #0b1020;
+      --surface: #121a2f;
+      --surface-muted: #17213a;
+      --text: #e5edf7;
+      --text-muted: #94a3b8;
+      --border: #26344f;
+      --accent: #4f8cff;
+      --accent-strong: #6ea2ff;
+      --secondary: #334155;
+      --danger: #f87171;
+      --ready: #2dd4bf;
+      --starting: #fbbf24;
+      --shadow: rgba(0,0,0,0.35);
+      --button-glow: rgba(79,140,255,0.35);
+      --input-bg: #0f172a;
+      --table-head: #18233d;
+    }
+    [data-theme="light"] {
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --text: #1f2937;
+      --text-muted: #475569;
+      --border: #cbd5e1;
+      --accent: #0f62fe;
+      --accent-strong: #2563eb;
+      --secondary: #475569;
+      --danger: #b91c1c;
+      --ready: #0f766e;
+      --starting: #b45309;
+      --shadow: rgba(0,0,0,0.08);
+      --button-glow: rgba(15,98,254,0.25);
+      --input-bg: #ffffff;
+      --table-head: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 180ms ease, color 180ms ease;
+    }
+    .top { display:flex; flex-direction:column; gap:12px; align-items:flex-start; margin-bottom:16px; }
+    input, button, select, textarea {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); }
+    button {
+      position: relative;
+      overflow: hidden;
+      cursor:pointer;
+      background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+      color:white;
+      border:none;
+      box-shadow: 0 8px 18px var(--button-glow);
+      transform: translateY(0);
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    }
+    button:hover { filter: brightness(1.05); box-shadow: 0 10px 24px var(--button-glow); }
+    button:active { transform: translateY(2px) scale(0.98); box-shadow: 0 3px 8px var(--button-glow); }
+    button::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.34), transparent 42%);
+      opacity: 0;
+      transform: scale(0.45);
+      transition: opacity 160ms ease, transform 160ms ease;
+      pointer-events: none;
+    }
+    button:active::after { opacity: 1; transform: scale(1.4); }
+    button.secondary { background: var(--secondary); box-shadow: none; }
     .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:16px 0; }
-    .card { background:white; border-radius:16px; padding:16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
-    table { width:100%; border-collapse: collapse; background:white; border-radius: 16px; overflow:hidden; }
-    th, td { padding:12px; border-bottom: 1px solid #e5e7eb; text-align:left; vertical-align:top; }
-    th { background:#eff6ff; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
+    table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
+    th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
+    th { background:var(--table-head); }
+    a { color: var(--accent-strong); }
     .status { font-weight:bold; text-transform:uppercase; font-size:12px; }
-    .ready { color:#0f766e; }
-    .starting { color:#b45309; }
-    .failed, .stopped, .expired, .deleted { color:#b91c1c; }
-    .small { font-size:12px; color:#475569; }
+    .ready { color:var(--ready); }
+    .starting { color:var(--starting); }
+    .failed, .stopped, .expired, .deleted { color:var(--danger); }
+    .small { font-size:12px; color:var(--text-muted); }
+    .timestamp { font-size:11px; color:var(--text-muted); white-space:nowrap; }
     .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .url { word-break:break-all; }
   </style>
@@ -720,6 +795,7 @@ def ui() -> str:
       <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" style=\"min-width:240px\" />
       <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" style=\"min-width:240px\" />
       <label class=\"small\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
+      <button class=\"secondary\" id=\"themeToggle\" type=\"button\" onclick=\"toggleTheme()\">Light mode</button>
       <button onclick=\"loadAll()\">Connect</button>
     </div>
   </div>
@@ -768,19 +844,30 @@ const storageKeys = {
   baseUrl: "liferayBroker.baseUrl",
   token: "liferayBroker.token",
   user: "liferayBroker.user",
-  showHistory: "liferayBroker.showHistory"
+  showHistory: "liferayBroker.showHistory",
+  theme: "liferayBroker.theme"
 };
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $("themeToggle").textContent = theme === "dark" ? "Light mode" : "Dark mode";
+}
 function restoreSavedInputs() {
   $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
   $("token").value = localStorage.getItem(storageKeys.token) || "";
   $("user").value = localStorage.getItem(storageKeys.user) || "";
   $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
+  applyTheme(localStorage.getItem(storageKeys.theme) || "dark");
 }
 function saveInputs() {
   localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
   localStorage.setItem(storageKeys.token, $("token").value);
   localStorage.setItem(storageKeys.user, $("user").value);
   localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
+}
+function toggleTheme() {
+  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(storageKeys.theme, nextTheme);
+  applyTheme(nextTheme);
 }
 restoreSavedInputs();
 ["baseUrl", "token", "user", "showHistory"].forEach((id) => {
@@ -799,7 +886,7 @@ function authHeaders() {
 }
 function setMessage(text, isError=false) {
   $("message").textContent = text;
-  $("message").style.color = isError ? "#b91c1c" : "#475569";
+  $("message").style.color = isError ? "var(--danger)" : "var(--text-muted)";
 }
 async function api(path, options={}) {
   const res = await fetch(`${$("baseUrl").value.replace(/\\/$/, "")}${path}`, {
@@ -830,7 +917,7 @@ function renderRows(items) {
       <td>${item.host_port}</td>
       <td class=\"url\"><a href=\"${item.url}\" target=\"_blank\">${item.url}</a></td>
       <td>${item.last_access_at || "no access yet"}<div class=\"small\">TTL ${item.expires_at}</div></td>
-      <td>${item.created_at}</td>
+      <td class=\"timestamp\">${item.created_at}</td>
       <td>
         <button class=\"secondary\" onclick=\"touchEnv('${item.id}')\">Touch</button>
         <button onclick=\"deleteEnv('${item.id}')\">Delete</button>
