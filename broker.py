@@ -3,7 +3,6 @@ import json
 import os
 import re
 import secrets
-import signal
 import socket
 import subprocess
 import threading
@@ -159,11 +158,6 @@ class Broker:
         self.cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True, name="cleanup-loop")
         self.cleanup_thread.start()
         self._restore_proxies()
-        signal.signal(signal.SIGTERM, self._shutdown_signal)
-        signal.signal(signal.SIGINT, self._shutdown_signal)
-
-    def _shutdown_signal(self, *_args: Any) -> None:
-        self.stop_all_proxies()
 
     def stop_all_proxies(self) -> None:
         for proxy in list(self.proxies.values()):
