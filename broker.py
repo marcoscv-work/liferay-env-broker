@@ -807,8 +807,8 @@ def ui() -> str:
     .has-tooltip::before {
       content: attr(data-tooltip);
       position: absolute;
-      left: 50%;
-      bottom: calc(100% + 10px);
+      top: 50%;
+      right: calc(100% + 12px);
       width: max-content;
       max-width: 240px;
       padding: 8px 10px;
@@ -822,7 +822,7 @@ def ui() -> str:
       text-align: left;
       white-space: normal;
       opacity: 0;
-      transform: translate(-50%, 4px);
+      transform: translate(4px, -50%);
       transition: opacity 140ms ease 2s, transform 140ms ease 2s;
       pointer-events: none;
       z-index: 20;
@@ -830,29 +830,28 @@ def ui() -> str:
     .has-tooltip::after {
       content: "";
       position: absolute;
-      left: 50%;
-      bottom: calc(100% + 4px);
+      top: 50%;
+      right: calc(100% + 7px);
       width: 10px;
       height: 10px;
       background: var(--surface);
+      border-top: 1px solid var(--border);
       border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
       opacity: 0;
-      transform: translate(-50%, 4px) rotate(45deg);
+      transform: translate(4px, -50%) rotate(45deg);
       transition: opacity 140ms ease 2s, transform 140ms ease 2s;
       pointer-events: none;
       z-index: 21;
     }
     .has-tooltip:hover::before,
-    .has-tooltip:focus-visible::before,
-    .has-tooltip:hover::after,
-    .has-tooltip:focus-visible::after {
+    .has-tooltip:focus-visible::before {
       opacity: 1;
-      transform: translate(-50%, 0);
+      transform: translate(0, -50%);
     }
     .has-tooltip:hover::after,
     .has-tooltip:focus-visible::after {
-      transform: translate(-50%, 0) rotate(45deg);
+      opacity: 1;
+      transform: translate(0, -50%) rotate(45deg);
     }
     @media (max-width: 760px) {
       body { margin: 16px; }
