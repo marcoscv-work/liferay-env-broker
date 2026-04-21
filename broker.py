@@ -772,6 +772,21 @@ def ui() -> str:
     }
     button:active::after { opacity: 1; transform: scale(1.4); }
     button.secondary { background: var(--secondary); box-shadow: none; }
+    .theme-toggle {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 20px;
+      line-height: 1;
+      z-index: 10;
+    }
     .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:16px 0; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
@@ -789,13 +804,13 @@ def ui() -> str:
   </style>
 </head>
 <body>
+  <button class=\"theme-toggle secondary\" id=\"themeToggle\" type=\"button\" onclick=\"toggleTheme()\" aria-label=\"Switch to light mode\" title=\"Switch theme\">&#9728;</button>
   <div class=\"top\">
     <h1 style=\"margin:0\">Liferay Environment Broker</h1>
     <div class=\"toolbar\">
       <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" style=\"min-width:240px\" />
       <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" style=\"min-width:240px\" />
       <label class=\"small\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
-      <button class=\"secondary\" id=\"themeToggle\" type=\"button\" onclick=\"toggleTheme()\">Light mode</button>
       <button onclick=\"loadAll()\">Connect</button>
     </div>
   </div>
@@ -849,7 +864,11 @@ const storageKeys = {
 };
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  $("themeToggle").textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  const toggle = $("themeToggle");
+  const switchingToLight = theme === "dark";
+  toggle.innerHTML = switchingToLight ? "&#9728;" : "&#9790;";
+  toggle.setAttribute("aria-label", switchingToLight ? "Switch to light mode" : "Switch to dark mode");
+  toggle.title = switchingToLight ? "Switch to light mode" : "Switch to dark mode";
 }
 function restoreSavedInputs() {
   $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
