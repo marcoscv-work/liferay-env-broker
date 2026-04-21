@@ -801,6 +801,21 @@ def ui() -> str:
     .timestamp { font-size:11px; color:var(--text-muted); white-space:nowrap; }
     .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .url { word-break:break-all; }
+    .table-wrap { width: 100%; }
+    @media (max-width: 760px) {
+      body { margin: 16px; }
+      .theme-toggle { top: 12px; right: 12px; }
+      .top { padding-right: 48px; }
+      .toolbar { align-items: stretch; }
+      .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .table-wrap table { min-width: 980px; border-radius: 0; }
+    }
   </style>
 </head>
 <body>
@@ -844,14 +859,16 @@ def ui() -> str:
   </div>
 
   <div id=\"message\" class=\"small\" style=\"margin-bottom:12px\"></div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th style=\"min-width:200px\">URL</th><th>Access</th><th>Created</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id=\"rows\"></tbody>
-  </table>
+  <div class=\"table-wrap\">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th style=\"min-width:210px\">URL</th><th>Access</th><th>Created</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id=\"rows\"></tbody>
+    </table>
+  </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
