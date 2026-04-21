@@ -1,0 +1,18 @@
+[Unit]
+Description=Liferay Local Environment Broker
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/liferay-env-broker
+Environment=BROKER_CONFIG=/opt/liferay-env-broker/config.yaml
+ExecStart=/opt/liferay-env-broker/.venv/bin/uvicorn broker:app --host 0.0.0.0 --port 8899
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

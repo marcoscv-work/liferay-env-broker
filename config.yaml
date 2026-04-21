@@ -1,0 +1,38 @@
+listen_host: 0.0.0.0
+listen_port: 8899
+proxy_bind_host: 0.0.0.0
+admin_user: admin
+api_tokens:
+  admin: CHANGE_ME_ADMIN_TOKEN
+  developer: CHANGE_ME_DEVELOPER_TOKEN
+profiles:
+  small:
+    memory_mb: 4096
+    cpus: 1.5
+    docker_run_args: []
+  standard:
+    memory_mb: 6144
+    cpus: 2
+    docker_run_args: []
+  large:
+    memory_mb: 8192
+    cpus: 3
+    docker_run_args: []
+port_range:
+  start: 18080
+  end: 18150
+base_url_template: http://BROKER_HOST:{port}
+registry_file: registry.json
+properties_dir: portal_properties
+docker_network: bridge
+default_ttl_hours: 8
+max_ttl_hours: 72
+cleanup_interval_seconds: 30
+ready_timeout_seconds: 300
+ready_check_interval_seconds: 5
+idle_timeout_minutes: 60
+ram_buffer_mb: 4096
+max_environments_per_user: 2
+allowed_image_patterns:
+- ^liferay/dxp:.*$
+- ^liferay/portal:.*$
