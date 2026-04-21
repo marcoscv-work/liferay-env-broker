@@ -75,6 +75,10 @@ class EnvironmentProxy:
                 body = self.rfile.read(length) if length else None
                 target_url = f"http://{proxy.target_host}:{proxy.target_port}{self.path}"
                 headers = {k: v for k, v in self.headers.items() if k.lower() not in {"host", "connection", "content-length"}}
+                headers["Host"] = self.headers.get("Host", f"{proxy.listen_host}:{proxy.listen_port}")
+                headers["X-Forwarded-Host"] = headers["Host"]
+                headers["X-Forwarded-Proto"] = "http"
+                headers["X-Forwarded-Port"] = str(proxy.listen_port)
                 try:
                     resp = requests.request(
                         self.command,
@@ -365,6 +369,11 @@ class Broker:
                 registry.append(updated)
             self._write_registry(registry)
 
+    def _remove_record(self, env_id: str) -> None:
+        with self.registry_lock:
+            registry = [item for item in self._read_registry() if item["id"] != env_id]
+            self._write_registry(registry)
+
     def _change_status(self, env_id: str, status: str, **extra: Any) -> Dict[str, Any]:
         registry = self._read_registry()
         record = next((x for x in registry if x["id"] == env_id), None)
@@ -514,7 +523,8 @@ class Broker:
                 return
             target_url = f"http://{record.get('target_ip')}:{8080}/c/portal/login"
             try:
-                resp = requests.get(target_url, timeout=5, allow_redirects=False)
+                host = urlparse(record["url"]).netloc
+                resp = requests.get(target_url, headers={"Host": host}, timeout=5, allow_redirects=False)
                 if resp.status_code in [200, 302, 401, 403]:
                     self._change_status(env_id, "ready", ready_at=iso_now(), error=None)
                     return
@@ -554,7 +564,7 @@ class Broker:
         if token_user not in [record["user"], admin_user]:
             raise HTTPException(status_code=403, detail="You cannot delete this environment")
         self._destroy_record(record, status=reason)
-        return self._registry_record(env_id) or record
+        return record
 
     def _destroy_record(self, record: Dict[str, Any], status: str) -> None:
         env_id = record["id"]
@@ -573,7 +583,7 @@ class Broker:
         record["status"] = status
         record["deleted_at"] = iso_now()
         record["updated_at"] = iso_now()
-        self._update_record(record)
+        self._remove_record(env_id)
 
     def _cleanup_loop(self) -> None:
         interval = int(self.config["cleanup_interval_seconds"])
@@ -808,6 +818,7 @@ function renderRows(items) {
   const visibleItems = $("showHistory").checked
     ? items
     : items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status));
+  visibleItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   $("rows").innerHTML = visibleItems.map(item => `
     <tr>
       <td>${item.id}<div class=\"small\">${item.container_name}</div></td>
