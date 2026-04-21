@@ -802,6 +802,58 @@ def ui() -> str:
     .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .url { word-break:break-all; }
     .table-wrap { width: 100%; }
+    .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .has-tooltip { overflow: visible; }
+    .has-tooltip::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      width: max-content;
+      max-width: 240px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 8px 24px var(--shadow);
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      transform: translate(-50%, 4px);
+      transition: opacity 140ms ease 2s, transform 140ms ease 2s;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .has-tooltip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 4px);
+      width: 10px;
+      height: 10px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      opacity: 0;
+      transform: translate(-50%, 4px) rotate(45deg);
+      transition: opacity 140ms ease 2s, transform 140ms ease 2s;
+      pointer-events: none;
+      z-index: 21;
+    }
+    .has-tooltip:hover::before,
+    .has-tooltip:focus-visible::before,
+    .has-tooltip:hover::after,
+    .has-tooltip:focus-visible::after {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+    .has-tooltip:hover::after,
+    .has-tooltip:focus-visible::after {
+      transform: translate(-50%, 0) rotate(45deg);
+    }
     @media (max-width: 760px) {
       body { margin: 16px; }
       .theme-toggle { top: 12px; right: 12px; }
@@ -955,8 +1007,10 @@ function renderRows(items) {
       <td>${item.last_access_at || "no access yet"}<div class=\"small\">TTL ${item.expires_at}</div></td>
       <td class=\"timestamp\">${item.created_at}</td>
       <td>
-        <button class=\"secondary\" onclick=\"touchEnv('${item.id}')\">Touch</button>
-        <button onclick=\"deleteEnv('${item.id}')\">Delete</button>
+        <div class=\"actions\">
+          <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
+          <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}')\">Delete</button>
+        </div>
       </td>
     </tr>
   `).join("");
