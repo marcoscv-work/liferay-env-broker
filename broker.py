@@ -787,12 +787,15 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin:16px 0; }
+    .cards { display:grid; grid-template-columns:minmax(360px,620px) repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:16px 0; align-items:stretch; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
+    .metric-card { min-height:92px; }
+    .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:flex-start; font-size:18px; }
+    .metric-line span { font-weight:700; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
-    .history-toggle { display:flex; align-items:center; gap:8px; margin-top:10px; }
+    .history-toggle { display:flex; align-items:center; gap:8px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
     th { background:var(--table-head); }
@@ -861,6 +864,7 @@ def ui() -> str:
       body { margin: 16px; }
       .theme-toggle { top: 12px; right: 12px; }
       .top { padding-right: 48px; }
+      .cards { grid-template-columns: 1fr; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
@@ -890,7 +894,6 @@ def ui() -> str:
         </div>
         <button onclick=\"loadAll()\">Connect</button>
       </div>
-      <label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
     </div>
     <div id=\"stats\" style=\"display:contents\"></div>
   </div>
@@ -951,17 +954,17 @@ function applyTheme(theme) {
   toggle.title = switchingToLight ? "Switch to light mode" : "Switch to dark mode";
 }
 function restoreSavedInputs() {
-  $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
-  $("token").value = localStorage.getItem(storageKeys.token) || "";
-  $("user").value = localStorage.getItem(storageKeys.user) || "";
-  $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
+  if ($("baseUrl")) $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
+  if ($("token")) $("token").value = localStorage.getItem(storageKeys.token) || "";
+  if ($("user")) $("user").value = localStorage.getItem(storageKeys.user) || "";
+  if ($("showHistory")) $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
   applyTheme(localStorage.getItem(storageKeys.theme) || "dark");
 }
 function saveInputs() {
-  localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
-  localStorage.setItem(storageKeys.token, $("token").value);
-  localStorage.setItem(storageKeys.user, $("user").value);
-  localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
+  if ($("baseUrl")) localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
+  if ($("token")) localStorage.setItem(storageKeys.token, $("token").value);
+  if ($("user")) localStorage.setItem(storageKeys.user, $("user").value);
+  if ($("showHistory")) localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
 }
 function toggleTheme() {
   const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -969,13 +972,17 @@ function toggleTheme() {
   applyTheme(nextTheme);
 }
 restoreSavedInputs();
-["baseUrl", "token", "user", "showHistory"].forEach((id) => {
+function bindSavedInput(id) {
+  if (!$(id)) return;
+  if ($(id).dataset.bound === "true") return;
+  $(id).dataset.bound = "true";
   $(id).addEventListener("input", saveInputs);
   $(id).addEventListener("change", () => {
     saveInputs();
     if ($("token").value) loadAll();
   });
-});
+}
+["baseUrl", "token", "user"].forEach(bindSavedInput);
 function authHeaders() {
   saveInputs();
   return {
@@ -997,13 +1004,17 @@ async function api(path, options={}) {
 }
 function renderStats(data) {
   const cards = [];
-  cards.push(`<div class=\"card\"><strong>Available RAM</strong><div>${data.memory.available_mb} MB</div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
-  for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card\"><strong>${k}</strong><div>${v}</div></div>`);
-  cards.push(`<div class=\"card\"><strong>Total</strong><div>${data.total}</div></div>`);
+  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Available RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
+  for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>${k}</strong><span>${v}</span></div></div>`);
+  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
+  if ($("showHistory")) {
+    $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
+    bindSavedInput("showHistory");
+  }
 }
 function renderRows(items) {
-  const visibleItems = $("showHistory").checked
+  const visibleItems = $("showHistory") && $("showHistory").checked
     ? items
     : items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status));
   visibleItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1038,7 +1049,7 @@ async function loadAll() {
   }
 }
 function visibleCount(items) {
-  if ($("showHistory").checked) return items.length;
+  if ($("showHistory") && $("showHistory").checked) return items.length;
   return items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status)).length;
 }
 function parseJsonSafe(text) {
