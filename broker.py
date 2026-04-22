@@ -787,8 +787,12 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:16px 0; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin:16px 0; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
+    .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
+    .connect-card input { width: 100%; }
+    .connect-fields { display:grid; gap:10px; min-width:0; }
+    .history-toggle { display:flex; align-items:center; gap:8px; margin-top:10px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
     th { background:var(--table-head); }
@@ -859,6 +863,8 @@ def ui() -> str:
       .top { padding-right: 48px; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
+      .connect-card { grid-template-columns: 1fr; align-items:stretch; }
+      .connect-card button { width: 100%; }
       .table-wrap {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -873,15 +879,21 @@ def ui() -> str:
   <button class=\"theme-toggle secondary\" id=\"themeToggle\" type=\"button\" onclick=\"toggleTheme()\" aria-label=\"Switch to light mode\" title=\"Switch theme\">&#9728;</button>
   <div class=\"top\">
     <h1 style=\"margin:0\">Liferay Environment Broker</h1>
-    <div class=\"toolbar\">
-      <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" style=\"min-width:240px\" />
-      <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" style=\"min-width:240px\" />
-      <label class=\"small\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
-      <button onclick=\"loadAll()\">Connect</button>
-    </div>
   </div>
 
-  <div class=\"cards\" id=\"stats\"></div>
+  <div class=\"cards\">
+    <div class=\"card\">
+      <div class=\"connect-card\">
+        <div class=\"connect-fields\">
+          <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" />
+          <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" />
+        </div>
+        <button onclick=\"loadAll()\">Connect</button>
+      </div>
+      <label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label>
+    </div>
+    <div id=\"stats\" style=\"display:contents\"></div>
+  </div>
 
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
@@ -985,9 +997,9 @@ async function api(path, options={}) {
 }
 function renderStats(data) {
   const cards = [];
-  cards.push(`<div class=\"card\"><strong>Total</strong><div>${data.total}</div></div>`);
   cards.push(`<div class=\"card\"><strong>Available RAM</strong><div>${data.memory.available_mb} MB</div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
   for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card\"><strong>${k}</strong><div>${v}</div></div>`);
+  cards.push(`<div class=\"card\"><strong>Total</strong><div>${data.total}</div></div>`);
   $("stats").innerHTML = cards.join("");
 }
 function renderRows(items) {
