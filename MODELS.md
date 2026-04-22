@@ -187,6 +187,56 @@ Limitations:
 - Not an advanced reverse proxy.
 - No TLS management.
 
+## Web Dashboard
+
+The dashboard is served by `GET /ui` from the broker process. It is a lightweight HTML/CSS/JavaScript page embedded in `broker.py`; there is no separate frontend build step.
+
+Primary users:
+
+- Developers who prefer a browser workflow.
+- Product, design, QA, and demo users who should not need Python or CLI commands.
+
+Main UI areas:
+
+| Area | Purpose |
+| --- | --- |
+| Header | Shows `Liferay Environment Broker` and the dark/light theme toggle. |
+| Connection card | Holds `Base URL`, `Bearer token`, and `Connect`. |
+| Metric cards | Show available RAM, status counts, and total visible environments. |
+| Total card | Also contains the `Show history` toggle. |
+| Create Environment card | Lets users create environments with image, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
+| Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
+
+Dashboard persistence:
+
+- `liferayBroker.baseUrl`
+- `liferayBroker.token`
+- `liferayBroker.user`
+- `liferayBroker.showHistory`
+- `liferayBroker.theme`
+
+These values are stored in browser `localStorage`. They are intentionally client-local and must not be committed to the repository.
+
+Dashboard behavior:
+
+- Dark mode is the default theme.
+- The theme toggle is an icon button in the top-right corner.
+- Connection controls are grouped with dashboard cards instead of the page header.
+- `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
+- The table is horizontally scrollable on small screens.
+- The URL column has a minimum width to keep environment links readable.
+- Created timestamps are rendered in smaller text.
+- Action buttons include delayed hover/focus tooltips.
+
+Dashboard actions:
+
+| Action | Endpoint | Effect |
+| --- | --- | --- |
+| `Connect` | `GET /v1/dashboard` and `GET /v1/environments` | Loads summary and environment table with the configured token. |
+| `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
+| `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup while still within TTL. |
+| `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties, and removes the registry record. |
+
 ## Auth Model
 
 The MVP uses static Bearer tokens:

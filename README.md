@@ -152,9 +152,43 @@ Web UI:
 http://BROKER_HOST:8899/ui
 ```
 
-The UI asks for a Bearer token and lets users list, create, touch, and delete environments.
+The UI asks for a Bearer token and lets users list, create, touch, and delete environments. The healthcheck is intentionally plain JSON, usually:
+
+```json
+{"status":"ok"}
+```
+
+## Web UI Workflow
+
+The web UI is the recommended workflow for product, design, QA, and other non-CLI users. It avoids local Python setup and keeps the common environment lifecycle actions in the browser.
+
+Dashboard behavior:
+
+- Dark mode is enabled by default and can be toggled from the icon in the top-right corner.
+- `Base URL`, `Bearer token`, and `Connect` live in the dashboard card area.
+- `Base URL`, `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
+- Summary cards show available RAM, environment counts by status, and total environments.
+- `Show history` lives in the `Total` card and controls whether deleted, failed, stopped, and expired records are shown.
+- Newer environments are shown first.
+- On small screens, the environment table has its own horizontal scroll area.
+
+Environment actions:
+
+- `Touch` updates `last_access_at` manually. Use it to keep an environment from being stopped by the inactivity timeout when it is still needed.
+- `Delete` stops and removes the Docker container, shuts down its proxy, and removes the environment from the visible registry list.
+- Action tooltips appear after a short hover or keyboard focus delay.
+
+Suggested non-technical flow:
+
+1. Open `http://BROKER_HOST:8899/ui`.
+2. Enter the broker URL and Bearer token once.
+3. Choose a user, image, and profile.
+4. Click `Create`.
+5. Open the returned environment URL from the table.
 
 ## Use From A Developer Machine
+
+The CLI is intended for developers and automation. Product/design users should generally use the web UI instead.
 
 Install the Python client dependency:
 
