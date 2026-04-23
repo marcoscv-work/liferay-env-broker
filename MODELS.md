@@ -234,7 +234,7 @@ Main UI areas:
 | --- | --- |
 | Header | Shows `Liferay Environment Broker` and the dark/light theme toggle. |
 | Login/session card | Accepts a `Bearer token`, then collapses into a compact connected-session summary. |
-| Metric cards | Show capacity usage, available RAM, and total visible environments. |
+| Metric cards | Show machine capacity usage, available RAM, and total visible environments. |
 | Total card | Also contains the `Show history` toggle. |
 | Create Environment card | Lets users create environments with image, Docker Hub tag suggestions, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
 | Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
@@ -256,11 +256,11 @@ Dashboard behavior:
 - The login controls hide after a successful connection.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
-- Capacity is shown as used/total units, active environment count, and profile unit costs.
+- Machine capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
 - The table is horizontally scrollable on small screens.
 - The URL column has a minimum width to keep environment links readable.
-- Created timestamps are rendered in smaller text.
+- Created timestamps are rendered in smaller text and include remaining TTL.
 - Action buttons include delayed hover/focus tooltips.
 
 Dashboard actions:

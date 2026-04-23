@@ -198,7 +198,7 @@ Dashboard behavior:
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
 - The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
 - Summary cards show available RAM and total environments.
-- Capacity is shown visually as used/total units, active environment count, and profile costs.
+- Machine capacity is shown visually as used/total units, active environment count, and profile costs.
 - `Show history` lives in the `Total` card and controls whether deleted, failed, stopped, and expired records are shown.
 - Newer environments are shown first.
 - On small screens, the environment table has its own horizontal scroll area.

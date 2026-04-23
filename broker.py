@@ -1139,7 +1139,7 @@ def ui() -> str:
     <table>
       <thead>
         <tr>
-          <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th style=\"min-width:210px\">URL</th><th>Access</th><th>Created</th><th>Actions</th>
+          <th>ID</th><th>Status</th><th>User</th><th>Image</th><th>Port</th><th style=\"min-width:210px\">URL</th><th>Access</th><th>Created / TTL</th><th>Actions</th>
         </tr>
       </thead>
       <tbody id=\"rows\"></tbody>
@@ -1308,13 +1308,25 @@ function renderCapacityCard(capacity) {
     .join("");
   return `
     <div class=\"card metric-card capacity-card\">
-      <div class=\"metric-line\"><strong>Capacity</strong><span>${used}/${total || "-"}</span></div>
+      <div class=\"metric-line\"><strong>Machine Capacity</strong><span>${used}/${total || "-"}</span></div>
       <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
       <div class=\"small\">Platform: ${capacity.active_environments} active environments</div>
       <div class=\"small\">Token ${capacity.user}: ${capacity.user_units}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
       <div class=\"profile-costs\">${costs}</div>
     </div>
   `;
+}
+function formatTtl(expiresAt) {
+  if (!expiresAt) return "TTL none";
+  const remainingMs = new Date(expiresAt) - new Date();
+  if (remainingMs <= 0) return "TTL expired";
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `TTL ${days}d ${hours}h left`;
+  if (hours > 0) return `TTL ${hours}h ${minutes}m left`;
+  return `TTL ${minutes}m left`;
 }
 function renderRows(items) {
   const visibleItems = $("showHistory") && $("showHistory").checked
@@ -1329,8 +1341,8 @@ function renderRows(items) {
       <td>${item.image}<div class=\"small\">DB: ${item.db_mode}</div></td>
       <td>${item.host_port}</td>
       <td class=\"url\"><a href=\"${item.url}\" target=\"_blank\">${item.url}</a></td>
-      <td>${item.last_access_at || "no access yet"}<div class=\"small\">TTL ${item.expires_at || "none"}</div></td>
-      <td class=\"timestamp\">${item.created_at}</td>
+      <td>${item.last_access_at || "no access yet"}</td>
+      <td class=\"timestamp\">${item.created_at}<div class=\"small\">${formatTtl(item.expires_at)}</div></td>
       <td>
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
