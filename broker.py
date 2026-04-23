@@ -972,7 +972,7 @@ def ui() -> str:
       flex:0 0 auto;
       cursor:help;
     }
-    .ttl-remaining { color:var(--ttl); font-weight:700; }
+    .ttl-remaining { color:var(--ttl) !important; font-weight:700; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
@@ -1047,6 +1047,27 @@ def ui() -> str:
     .has-tooltip:focus-visible::after {
       opacity: 1;
       transform: translate(0, -50%);
+    }
+    .ttl-field .has-tooltip::before {
+      top: calc(100% + 10px);
+      right: 0;
+      max-width: 280px;
+      transform: translateY(-4px);
+    }
+    .ttl-field .has-tooltip::after {
+      top: calc(100% + 3px);
+      right: 8px;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 7px solid var(--surface);
+      border-top: 0;
+      transform: translateY(-4px);
+    }
+    .ttl-field .has-tooltip:hover::before,
+    .ttl-field .has-tooltip:focus-visible::before,
+    .ttl-field .has-tooltip:hover::after,
+    .ttl-field .has-tooltip:focus-visible::after {
+      transform: translateY(0);
     }
     @media (min-width: 1800px) {
       .cards {
