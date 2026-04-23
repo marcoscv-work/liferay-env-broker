@@ -27,6 +27,7 @@ Main persisted fields:
 | `last_access_at` | datetime ISO/null | Last request seen by the proxy or manual touch endpoint. |
 | `last_access_reason` | string | Access update reason, such as `http_request` or `manual_touch`. |
 | `idle_timeout_minutes` | integer | Inactivity timeout applied to the environment. |
+| `idle_timeout_enabled` | boolean | Whether inactivity cleanup applies to this environment. |
 | `target_ip` | string | Docker-internal container IP used by the proxy. |
 | `properties_file` | string/null | Generated `portal-ext.properties` path. |
 | `env` | object | Extra environment variables passed to the container. |
@@ -74,7 +75,7 @@ Pydantic model accepted by `POST /v1/environments`.
 | `portal_properties` | string/null | no | `null` | Complete `portal-ext.properties` content. |
 | `host_port` | integer/null | no | `null` | Requested host port. If omitted, the broker assigns a free one. |
 | `env` | object | no | `{}` | Additional environment variables. |
-| `ttl_hours` | integer/null | no | `null` | Requested TTL, capped by `max_ttl_hours`; `0` disables TTL expiration. |
+| `ttl_hours` | integer/null | no | `null` | `null` uses default TTL and enables inactivity cleanup; `1..max_ttl_hours` sets a fixed max lifetime without inactivity cleanup; `0` keeps the environment until manual delete. |
 | `db_mode` | string | no | `none` | `none` or `external`. |
 | `db_env` | object | no | `{}` | External DB variables. Required when `db_mode=external`. |
 
@@ -133,7 +134,7 @@ Required keys:
 | `properties_dir` | Directory for generated `portal-ext.properties` files. |
 | `docker_network` | Docker network passed to `docker run --network`. |
 | `default_ttl_hours` | Default TTL when the user does not request one. |
-| `max_ttl_hours` | Upper bound for requested TTL. Use `ttl_hours=0` to disable TTL expiration for one environment. |
+| `max_ttl_hours` | Upper bound for requested TTL. Use `ttl_hours=0` to keep one environment until manual delete. |
 | `cleanup_interval_seconds` | Cleanup loop interval. |
 | `ram_buffer_mb` | Minimum free RAM that must remain after creation. |
 | `capacity` | Optional global capacity-unit guardrail configuration. |
@@ -272,7 +273,7 @@ Dashboard actions:
 | --- | --- | --- |
 | `Connect` | `GET /v1/me`, `GET /v1/dashboard`, and `GET /v1/environments` | Loads token identity, summary, and environment table with the configured token. |
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
-| `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup while still within TTL. |
+| `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup for default ephemeral environments. |
 | `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties, and removes the registry record. |
 
 ## Auth Model

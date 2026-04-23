@@ -427,6 +427,7 @@ class Broker:
         container_name = self._make_name(req)
         properties_path = self._write_properties(env_id, req.portal_properties)
 
+        idle_timeout_enabled = req.ttl_hours is None
         ttl_hours = int(self.config["default_ttl_hours"]) if req.ttl_hours is None else int(req.ttl_hours)
         if ttl_hours < 0:
             raise HTTPException(status_code=400, detail="ttl_hours must be 0 or greater")
@@ -447,6 +448,7 @@ class Broker:
             "expires_at": expires_at.isoformat() if expires_at else None,
             "last_access_at": None,
             "idle_timeout_minutes": int(self.config["idle_timeout_minutes"]),
+            "idle_timeout_enabled": idle_timeout_enabled,
             "url": self.config["base_url_template"].format(port=host_port, container_name=container_name, env_id=env_id),
             "properties_file": str(properties_path) if properties_path else None,
             "env": {},
@@ -656,6 +658,8 @@ class Broker:
             expires_at = datetime.fromisoformat(record["expires_at"]) if record.get("expires_at") else None
             if expires_at and now >= expires_at:
                 self._destroy_record(record, status="expired")
+                continue
+            if not record.get("idle_timeout_enabled", True):
                 continue
             last_access_at = datetime.fromisoformat(record["last_access_at"]) if record.get("last_access_at") else None
             baseline = last_access_at or datetime.fromisoformat(record["created_at"])
@@ -1195,8 +1199,8 @@ def ui() -> str:
       </select>
       <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
       <div class=\"ttl-field\">
-        <input id=\"ttl\" placeholder=\"ttl hours, max 120, 0 = no TTL\" inputmode=\"numeric\" />
-        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Time to live in hours. Empty uses the default. Maximum is 120 hours. Use 0 to disable maximum lifetime expiration. Environments are still stopped after 60 minutes without access.\">i</span>
+        <input id=\"ttl\" placeholder=\"blank = idle cleanup, 0 = manual delete\" inputmode=\"numeric\" />
+        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span>
       </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>

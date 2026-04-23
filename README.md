@@ -24,7 +24,7 @@ The intended deployment is an internal network or VPN. The broker manages Docker
 7. A small HTTP proxy listens on the assigned host port and forwards traffic to `container:8080`.
 8. The broker waits for Liferay to answer on `/c/portal/login`.
 9. The environment moves to `ready` or `failed`.
-10. The cleanup loop stops environments after inactivity or max TTL.
+10. The cleanup loop stops environments after max TTL, and only applies inactivity cleanup to environments created with the TTL field left blank.
 
 ## Lifecycle States
 
@@ -140,7 +140,7 @@ image_cleanup:
 
 Capacity units are a simple scheduling guardrail. In this default model, `small` and `standard` each cost 1 unit, `large` costs 2 units, and the shared machine has 12 units. That means the platform can run up to 12 standard environments, or a bounded mix of standard and large environments. `per_user_units` limits how much capacity each user can consume independently; regular users get 1 unit by default, while admin can consume the full shared pool.
 
-Set `ttl_hours` to `0` when creating an environment to disable the maximum lifetime expiration. Inactivity cleanup still applies unless that policy is changed separately.
+Leave `ttl_hours` empty for the default ephemeral behavior: the environment uses `default_ttl_hours` and can also be stopped after `idle_timeout_minutes` without access. Set `ttl_hours` to a value from `1` to `max_ttl_hours` for a fixed maximum lifetime without inactivity cleanup. Set `ttl_hours` to `0` to keep the environment until it is deleted manually.
 
 Image cleanup prunes Docker images that are not used by any container and are older than the configured age. It does not remove images used by active or stopped containers.
 
@@ -207,7 +207,7 @@ Dashboard behavior:
 
 Environment actions:
 
-- `Touch` updates `last_access_at` manually. Use it to keep an environment from being stopped by the inactivity timeout when it is still needed.
+- `Touch` updates `last_access_at` manually. Use it to keep a default ephemeral environment from being stopped by the inactivity timeout when it is still needed.
 - `Delete` stops and removes the Docker container, shuts down its proxy, and removes the environment from the visible registry list.
 - Action tooltips appear after a short hover or keyboard focus delay.
 
