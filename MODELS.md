@@ -220,7 +220,7 @@ Main UI areas:
 | --- | --- |
 | Header | Shows `Liferay Environment Broker` and the dark/light theme toggle. |
 | Connection card | Holds `Base URL`, `Bearer token`, and `Connect`. |
-| Metric cards | Show available RAM, status counts, and total visible environments. |
+| Metric cards | Show capacity usage, available RAM, status counts, and total visible environments. |
 | Total card | Also contains the `Show history` toggle. |
 | Create Environment card | Lets users create environments with image, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
 | Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
@@ -241,6 +241,7 @@ Dashboard behavior:
 - The theme toggle is an icon button in the top-right corner.
 - Connection controls are grouped with dashboard cards instead of the page header.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
+- Capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
 - The table is horizontally scrollable on small screens.
 - The URL column has a minimum width to keep environment links readable.

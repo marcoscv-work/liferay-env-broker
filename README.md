@@ -185,6 +185,7 @@ Dashboard behavior:
 - `Base URL`, `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
 - Summary cards show available RAM, environment counts by status, and total environments.
+- Capacity is shown visually as used/total units, active environment count, and profile costs.
 - `Show history` lives in the `Total` card and controls whether deleted, failed, stopped, and expired records are shown.
 - Newer environments are shown first.
 - On small screens, the environment table has its own horizontal scroll area.

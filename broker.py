@@ -658,6 +658,24 @@ class Broker:
             "by_status": dict(by_status),
             "by_user": dict(by_user),
             "memory": self._get_system_memory(),
+            "capacity": self._capacity_summary(),
+        }
+
+    def _capacity_summary(self) -> Dict[str, Any]:
+        capacity = self.config.get("capacity") or {}
+        profiles = self.config.get("profiles") or {}
+        active = [x for x in self._read_registry() if x.get("status") in ["starting", "ready"]]
+        total_units = int(capacity.get("total_units", 0) or 0)
+        max_active = int(capacity.get("max_active_environments", 0) or 0)
+        used_units = sum(self._profile_capacity_units(x.get("profile", "")) for x in active)
+        costs = {name: int(profile.get("capacity_units", 1)) for name, profile in profiles.items()}
+        return {
+            "total_units": total_units,
+            "used_units": used_units,
+            "available_units": max(total_units - used_units, 0) if total_units else None,
+            "max_active_environments": max_active,
+            "active_environments": len(active),
+            "profile_units": costs,
         }
 
 
@@ -828,6 +846,11 @@ def ui() -> str:
     .metric-card { min-height:92px; }
     .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:flex-start; font-size:18px; }
     .metric-line span { font-weight:700; }
+    .capacity-card { min-width:280px; }
+    .capacity-bar { height:10px; border-radius:999px; background:var(--surface-muted); overflow:hidden; margin:12px 0 8px; border:1px solid var(--border); }
+    .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
+    .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .profile-cost { padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-muted); font-size:12px; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
@@ -1079,6 +1102,7 @@ function formatApiError(rawText, status) {
 }
 function renderStats(data) {
   const cards = [];
+  if (data.capacity) cards.push(renderCapacityCard(data.capacity));
   cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Available RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
   for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>${k}</strong><span>${v}</span></div></div>`);
   cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
@@ -1087,6 +1111,22 @@ function renderStats(data) {
     $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
     bindSavedInput("showHistory");
   }
+}
+function renderCapacityCard(capacity) {
+  const total = capacity.total_units || 0;
+  const used = capacity.used_units || 0;
+  const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const costs = Object.entries(capacity.profile_units || {})
+    .map(([name, units]) => `<span class=\"profile-cost\">${name}: ${units}u</span>`)
+    .join("");
+  return `
+    <div class=\"card metric-card capacity-card\">
+      <div class=\"metric-line\"><strong>Capacity</strong><span>${used}/${total || "-"}</span></div>
+      <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
+      <div class=\"small\">${capacity.active_environments}/${capacity.max_active_environments || "-"} active environments</div>
+      <div class=\"profile-costs\">${costs}</div>
+    </div>
+  `;
 }
 function renderRows(items) {
   const visibleItems = $("showHistory") && $("showHistory").checked
