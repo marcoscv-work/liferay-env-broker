@@ -1208,19 +1208,21 @@ def ui() -> str:
       </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
-    <p class=\"small\">Environment and database fields use JSON. Portal properties use .properties syntax.</p>
     <details class=\"advanced-panel\">
       <summary>Environment variables JSON</summary>
+      <p class=\"small\">Use plain JSON with string values.</p>
       <textarea id=\"env\" placeholder='{\"LIFERAY_JVM_OPTS\":\"-Xms2g -Xmx4g\"}' rows=\"4\"></textarea>
     </details>
     <div class=\"advanced-grid\">
       <div id=\"dbEnvField\" class=\"field-block db-env-field hidden\">
         <label for=\"db_env\">External DB variables JSON</label>
+        <div class=\"small\">Use plain JSON with the variables required by your external database.</div>
         <textarea id=\"db_env\" placeholder='{\"LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL\":\"jdbc:postgresql://...\"}' rows=\"4\"></textarea>
       </div>
     </div>
     <details class=\"advanced-panel\">
       <summary>Advanced portal-ext.properties</summary>
+      <p class=\"small\">Use standard `.properties` syntax, one property per line.</p>
       <textarea id=\"props\" placeholder=\"feature.flag.LPD-12345=true&#10;feature.flag.LPD-12345.system=true\" rows=\"5\"></textarea>
     </details>
   </div>
