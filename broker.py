@@ -903,7 +903,7 @@ def ui() -> str:
     <h2 style=\"margin-top:0\">Create Environment</h2>
     <div class=\"toolbar\">
       <input id=\"user\" placeholder=\"user\" />
-      <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:2026.q2.1\" style=\"min-width:280px\" />
+      <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" style=\"min-width:280px\" />
       <select id=\"profile\">
         <option value=\"small\">small</option>
         <option value=\"standard\" selected>standard</option>
