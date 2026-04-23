@@ -199,6 +199,7 @@ Dashboard behavior:
 - The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
 - Environment variables JSON is collapsed by default, and external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax.
+- Every environment always includes the broker defaults for setup wizard, terms of use, auth token check, password-change enforcement, and the initial admin password. Any custom `portal-ext.properties` lines are appended after those defaults.
 - Summary cards show available RAM and environments accessible to the current token.
 - Machine capacity is shown visually as used/total units, active environment count, and profile costs.
 - `Show history` lives in the `Visible Environments` card and controls whether deleted, failed, stopped, and expired records are shown.
@@ -283,6 +284,18 @@ python3 client.py create \
   --profile large \
   --properties-file ./portal-ext.properties
 ```
+
+Broker-managed default `portal-ext.properties` values:
+
+```properties
+setup.wizard.enabled=false
+terms.of.use.required=false
+auth.token.check.enabled=false
+passwords.default.policy.change.required=false
+default.admin.password=test
+```
+
+Custom properties provided through the CLI or web UI are appended after these defaults.
 
 Create with an external database:
 

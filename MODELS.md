@@ -29,7 +29,7 @@ Main persisted fields:
 | `idle_timeout_minutes` | integer | Inactivity timeout applied to the environment. |
 | `idle_timeout_enabled` | boolean | Whether inactivity cleanup applies to this environment. |
 | `target_ip` | string | Docker-internal container IP used by the proxy. |
-| `properties_file` | string/null | Generated `portal-ext.properties` path. |
+| `properties_file` | string/null | Generated `portal-ext.properties` path with broker defaults plus any user-provided overrides. |
 | `env` | object | Extra environment variables passed to the container. |
 | `db_mode` | string | `none` or `external`. |
 | `db_env` | object | External database variables when `db_mode=external`. |
@@ -259,6 +259,7 @@ Dashboard behavior:
 - The create form shows the connected user as text instead of an editable field.
 - Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON.
+- Every environment always injects broker defaults to skip setup/password-change prompts; custom lines are appended after those defaults.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.

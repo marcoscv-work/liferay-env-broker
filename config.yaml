@@ -27,6 +27,17 @@ port_range:
 base_url_template: http://BROKER_HOST:{port}
 registry_file: registry.json
 properties_dir: portal_properties
+default_portal_properties:
+- - setup.wizard.enabled
+  - 'false'
+- - terms.of.use.required
+  - 'false'
+- - auth.token.check.enabled
+  - 'false'
+- - passwords.default.policy.change.required
+  - 'false'
+- - default.admin.password
+  - test
 docker_network: bridge
 default_ttl_hours: 8
 max_ttl_hours: 120

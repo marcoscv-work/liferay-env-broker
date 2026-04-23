@@ -23,6 +23,13 @@ from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.environ.get("BROKER_CONFIG", BASE_DIR / "config.yaml"))
+DEFAULT_PORTAL_PROPERTIES = [
+    ("setup.wizard.enabled", "false"),
+    ("terms.of.use.required", "false"),
+    ("auth.token.check.enabled", "false"),
+    ("passwords.default.policy.change.required", "false"),
+    ("default.admin.password", "test"),
+]
 
 
 def utcnow() -> datetime:
@@ -381,11 +388,21 @@ class Broker:
             env["LIFERAY_WEB_PERIOD_SERVER_PERIOD_HTTP_PERIOD_PORT"] = str(parsed.port)
         return env
 
+    def _default_portal_properties_content(self) -> str:
+        items = self.config.get("default_portal_properties") or DEFAULT_PORTAL_PROPERTIES
+        lines = [f"{key}={value}" for key, value in items]
+        return "\n".join(lines).strip()
+
+    def _compose_portal_properties(self, content: Optional[str]) -> str:
+        default_content = self._default_portal_properties_content()
+        extra_content = (content or "").strip()
+        if extra_content:
+            return f"{default_content}\n\n{extra_content}\n"
+        return f"{default_content}\n"
+
     def _write_properties(self, env_id: str, content: Optional[str]) -> Optional[Path]:
-        if not content:
-            return None
         path = self.properties_dir / f"{env_id}-portal-ext.properties"
-        path.write_text(content, encoding="utf-8")
+        path.write_text(self._compose_portal_properties(content), encoding="utf-8")
         return path
 
     def _update_record(self, updated: Dict[str, Any]) -> None:
@@ -1222,7 +1239,7 @@ def ui() -> str:
     </div>
     <details class=\"advanced-panel\">
       <summary>Advanced portal-ext.properties</summary>
-      <p class=\"small\">Use standard `.properties` syntax, one property per line.</p>
+      <p class=\"small\">Use standard `.properties` syntax, one property per line. Broker defaults already disable setup and password-change prompts.</p>
       <textarea id=\"props\" placeholder=\"feature.flag.LPD-12345=true&#10;feature.flag.LPD-12345.system=true\" rows=\"5\"></textarea>
     </details>
   </div>
