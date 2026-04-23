@@ -968,6 +968,10 @@ def ui() -> str:
     .total-card { grid-area:total; }
     .capacity-bar { height:10px; border-radius:999px; background:var(--surface-muted); overflow:hidden; margin:12px 0 8px; border:1px solid var(--border); }
     .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
+    .capacity-fill.user { background:linear-gradient(90deg, var(--accent-strong), var(--ttl)); }
+    .capacity-section + .capacity-section { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+    .capacity-section.secondary .metric-line { font-size:15px; }
+    .capacity-label { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
     .profile-cost { padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-muted); font-size:12px; }
     .field-user { display:flex; align-items:center; min-height:42px; padding:0 12px 0 0; color:var(--text); font-weight:700; white-space:nowrap; }
@@ -1378,9 +1382,9 @@ function formatApiError(rawText, status) {
   };
   return friendly[detail] || detail || `Request failed with status ${status}`;
 }
-function renderStats(data) {
+function renderStats(data, isAdmin=false) {
   const cards = [];
-  if (data.capacity) cards.push(renderCapacityCard(data.capacity));
+  if (data.capacity) cards.push(renderCapacityCard(data.capacity, isAdmin));
   cards.push(`<div class=\"card metric-card ram-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
   cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Visible Environments</strong><span id=\"visibleCountValue\">${data.total}</span></div><div class=\"small\">Rows currently shown</div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
@@ -1389,7 +1393,7 @@ function renderStats(data) {
     bindSavedInput("showHistory");
   }
 }
-function renderCapacityCard(capacity) {
+function renderCapacityCard(capacity, isAdmin) {
   const total = capacity.total_units || 0;
   const used = capacity.used_units || 0;
   const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -1399,14 +1403,25 @@ function renderCapacityCard(capacity) {
   const costs = Object.entries(capacity.profile_units || {})
     .map(([name, units]) => `<span class=\"profile-cost\">${name}: ${units}u</span>`)
     .join("");
+  const userSection = `
+    <div class=\"capacity-section ${isAdmin ? "" : "primary"}\">
+      <div class=\"capacity-label\">Your quota</div>
+      <div class=\"metric-line\"><strong>${capacity.user}</strong><span>${userUsed}/${capacity.user_unit_limit || "-"}</span></div>
+      <div class=\"capacity-bar\"><div class=\"capacity-fill user\" style=\"width:${userPercent}%\"></div></div>
+      <div class=\"small\">${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments running</div>
+    </div>
+  `;
+  const machineSection = `
+    <div class=\"capacity-section ${isAdmin ? "" : "secondary"}\">
+      <div class=\"capacity-label\">Machine capacity</div>
+      <div class=\"metric-line\"><strong>Platform</strong><span>${used}/${total || "-"}</span></div>
+      <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
+      <div class=\"small\">${capacity.active_environments} active environments across the machine</div>
+    </div>
+  `;
   return `
     <div class=\"card metric-card capacity-card\">
-      <div class=\"metric-line\"><strong>Machine Capacity</strong><span>${used}/${total || "-"}</span></div>
-      <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
-      <div class=\"small\">Platform: ${capacity.active_environments} active environments</div>
-      <div class=\"small\" style=\"margin-top:8px\">Your quota</div>
-      <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${userPercent}%\"></div></div>
-      <div class=\"small\">Token ${capacity.user}: ${userUsed}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
+      ${isAdmin ? machineSection + userSection : userSection + machineSection}
       <div class=\"profile-costs\">${costs}</div>
     </div>
   `;
@@ -1455,7 +1470,7 @@ async function loadAll() {
     const [me, stats, items] = await Promise.all([api('/v1/me'), api('/v1/dashboard'), api('/v1/environments')]);
     setTokenUser(me.user);
     setConnectedSession(me.user);
-    renderStats(stats);
+    renderStats(stats, Boolean(me.is_admin));
     renderRows(items);
     loadImageSuggestions().catch(() => {});
     setMessage(`Loaded ${visibleCount(items)} of ${items.length} environments`);
