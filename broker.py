@@ -862,13 +862,24 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin:16px 0; align-items:stretch; }
+    .cards {
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        "connect connect capacity capacity"
+        "ram total . .";
+      gap:12px;
+      margin:16px 0;
+      align-items:stretch;
+    }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
-    .connection-panel { min-height:112px; min-width:0; }
+    .connection-panel { grid-area:connect; min-height:112px; min-width:0; }
     .metric-card { min-height:92px; }
     .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:space-between; font-size:18px; white-space:nowrap; }
     .metric-line span { font-weight:700; }
-    .capacity-card { grid-column:span 2; min-width:0; }
+    .capacity-card { grid-area:capacity; min-width:0; }
+    .ram-card { grid-area:ram; }
+    .total-card { grid-area:total; }
     .capacity-bar { height:10px; border-radius:999px; background:var(--surface-muted); overflow:hidden; margin:12px 0 8px; border:1px solid var(--border); }
     .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
@@ -944,13 +955,32 @@ def ui() -> str:
       opacity: 1;
       transform: translate(0, -50%);
     }
-    @media (min-width: 1181px) {
-      .connection-panel { grid-column:span 2; }
-    }
-    @media (max-width: 1180px) {
-      .capacity-card { grid-column:1 / -1; }
+    @media (min-width: 1800px) {
+      .cards {
+        grid-template-columns:repeat(6, minmax(0, 1fr));
+        grid-template-areas:"connect connect capacity capacity ram total";
+      }
     }
     @media (max-width: 980px) {
+      .cards {
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+          "connect connect"
+          "capacity capacity"
+          "ram total";
+      }
+      .connect-card { grid-template-columns: 1fr; align-items:stretch; }
+      .connect-card button { width: 100%; }
+    }
+    @media (max-width: 820px) {
+      .cards {
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "connect"
+          "capacity"
+          "ram"
+          "total";
+      }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
       .connect-card button { width: 100%; }
     }
@@ -958,8 +988,6 @@ def ui() -> str:
       body { margin: 16px; }
       .theme-toggle { top: 12px; right: 12px; }
       .top { padding-right: 48px; }
-      .cards { grid-template-columns: 1fr; }
-      .connection-panel, .capacity-card { grid-column:span 1; }
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
@@ -1137,8 +1165,8 @@ function formatApiError(rawText, status) {
 function renderStats(data) {
   const cards = [];
   if (data.capacity) cards.push(renderCapacityCard(data.capacity));
-  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
-  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
+  cards.push(`<div class=\"card metric-card ram-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
+  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
   if ($("showHistory")) {
     $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
