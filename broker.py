@@ -924,9 +924,7 @@ def ui() -> str:
     .cards {
       display:grid;
       grid-template-columns:repeat(4, minmax(0, 1fr));
-      grid-template-areas:
-        "capacity capacity ram total"
-        "ram total . .";
+      grid-template-areas:"capacity capacity ram total";
       gap:12px;
       margin:16px 0;
       align-items:stretch;
@@ -1086,9 +1084,7 @@ def ui() -> str:
     <button class=\"secondary\" onclick=\"disconnect()\">Change token</button>
   </div>
 
-  <div class=\"cards\">
-    <div id=\"stats\" style=\"display:contents\"></div>
-  </div>
+  <div id=\"stats\" class=\"cards\"></div>
 
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
