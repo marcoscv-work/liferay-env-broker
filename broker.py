@@ -191,7 +191,6 @@ class Broker:
             "max_ttl_hours",
             "cleanup_interval_seconds",
             "ram_buffer_mb",
-            "max_environments_per_user",
             "ready_timeout_seconds",
             "ready_check_interval_seconds",
             "idle_timeout_minutes",
@@ -288,11 +287,12 @@ class Broker:
         registry = self._read_registry()
         active_statuses = ["starting", "ready"]
         active_user_envs = [x for x in registry if x["user"] == req.user and x["status"] in active_statuses]
-        max_envs = self._max_environments_for_user(req.user)
-        if len(active_user_envs) >= max_envs:
+        if len(active_user_envs) >= self._max_environments_for_user(req.user):
             raise HTTPException(status_code=409, detail="Maximum active environments reached")
 
         profile = self.config["profiles"][req.profile]
+        self._check_capacity_units(registry, req.user, req.profile)
+
         mem = self._get_system_memory()
         required_mb = int(profile["memory_mb"])
         buffer_mb = int(self.config["ram_buffer_mb"])
@@ -307,8 +307,32 @@ class Broker:
         return profile
 
     def _max_environments_for_user(self, user: str) -> int:
+        fallback = self.config.get("max_environments_per_user")
         per_user_limits = self.config.get("max_environments_by_user") or {}
-        return int(per_user_limits.get(user, self.config["max_environments_per_user"]))
+        return int(per_user_limits.get(user, fallback or 999999))
+
+    def _check_capacity_units(self, registry: List[Dict[str, Any]], user: str, requested_profile: str) -> None:
+        capacity = self.config.get("capacity") or {}
+        if not capacity:
+            return
+        total_limit = int(capacity.get("total_units", 0) or 0)
+        per_user_units = capacity.get("per_user_units") or {}
+        max_active = int(capacity.get("max_active_environments", 0) or 0)
+        user_limit = int(per_user_units.get(user, per_user_units.get("default", total_limit)) or 0)
+        requested_units = self._profile_capacity_units(requested_profile)
+        active = [x for x in registry if x.get("status") in ["starting", "ready"]]
+        if max_active and len(active) + 1 > max_active:
+            raise HTTPException(status_code=409, detail="Maximum platform active environments reached")
+        total_used = sum(self._profile_capacity_units(x.get("profile", "")) for x in active)
+        user_used = sum(self._profile_capacity_units(x.get("profile", "")) for x in active if x.get("user") == user)
+        if total_limit and total_used + requested_units > total_limit:
+            raise HTTPException(status_code=409, detail="Not enough platform capacity available")
+        if user_limit and user_used + requested_units > user_limit:
+            raise HTTPException(status_code=409, detail="User capacity limit reached")
+
+    def _profile_capacity_units(self, profile_name: str) -> int:
+        profile = self.config.get("profiles", {}).get(profile_name) or {}
+        return int(profile.get("capacity_units", 1))
 
     def _is_port_free(self, port: int) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -652,6 +676,12 @@ def profiles(authorization: Optional[str] = Header(default=None)) -> Dict[str, A
     return broker.config["profiles"]
 
 
+@app.get("/v1/me")
+def me(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    token_user = broker.authenticate(authorization)
+    return {"user": token_user, "is_admin": token_user == broker.config.get("admin_user", "admin")}
+
+
 @app.get("/v1/environments")
 def list_environments(authorization: Optional[str] = Header(default=None)) -> List[Dict[str, Any]]:
     token_user = broker.authenticate(authorization)
@@ -975,6 +1005,13 @@ function saveInputs() {
   if ($("user")) localStorage.setItem(storageKeys.user, $("user").value);
   if ($("showHistory")) localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
 }
+function setTokenUser(user) {
+  if (!$("user") || !user) return;
+  $("user").value = user;
+  $("user").readOnly = true;
+  $("user").title = "Filled from the Bearer token";
+  saveInputs();
+}
 function toggleTheme() {
   const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   localStorage.setItem(storageKeys.theme, nextTheme);
@@ -1028,6 +1065,9 @@ function formatApiError(rawText, status) {
   } catch (_) {}
   const friendly = {
     "Maximum active environments reached": "You already have the maximum number of active environments. Delete your current environment before creating a new one.",
+    "Maximum platform active environments reached": "The platform already has the maximum number of active environments. Delete an unused environment or wait for one to expire.",
+    "Not enough platform capacity available": "There is not enough shared platform capacity for this profile right now. Try a smaller profile or delete another environment.",
+    "User capacity limit reached": "This profile would exceed your capacity limit. Delete your current environment or choose a smaller profile.",
     "Missing Bearer token": "Enter your Bearer token before connecting.",
     "Invalid token": "The Bearer token is not valid for this broker.",
     "Payload user does not match the token user": "The selected user does not match the Bearer token. Use the user assigned to that token.",
@@ -1076,7 +1116,8 @@ async function loadAll() {
   try {
     setButtonBusy("connectButton", true, "Connecting...");
     saveInputs();
-    const [stats, items] = await Promise.all([api('/v1/dashboard'), api('/v1/environments')]);
+    const [me, stats, items] = await Promise.all([api('/v1/me'), api('/v1/dashboard'), api('/v1/environments')]);
+    setTokenUser(me.user);
     renderStats(stats);
     renderRows(items);
     setMessage(`Loaded ${visibleCount(items)} of ${items.length} environments`);

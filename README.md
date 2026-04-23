@@ -106,18 +106,32 @@ Useful settings:
 
 ```yaml
 profiles:
+  small:
+    memory_mb: 4096
+    cpus: 1.5
+    capacity_units: 2
   standard:
     memory_mb: 6144
     cpus: 2
+    capacity_units: 3
+  large:
+    memory_mb: 8192
+    cpus: 3
+    capacity_units: 6
 port_range:
   start: 18080
   end: 18150
 default_ttl_hours: 8
 idle_timeout_minutes: 60
-max_environments_per_user: 1
-max_environments_by_user:
-  admin: 4
+capacity:
+  total_units: 12
+  max_active_environments: 4
+  per_user_units:
+    default: 3
+    admin: 12
 ```
+
+Capacity units are a simple scheduling guardrail. They avoid treating every environment as equal: `small` costs fewer units than `large`, but `max_active_environments` still prevents too many small environments from competing for CPU at the same time. With the example above, the host can run up to four `standard` environments, two `large` environments, or a bounded mix.
 
 Restart the service:
 
@@ -169,6 +183,7 @@ Dashboard behavior:
 - Dark mode is enabled by default and can be toggled from the icon in the top-right corner.
 - `Base URL`, `Bearer token`, and `Connect` live in the dashboard card area.
 - `Base URL`, `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
+- After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
 - Summary cards show available RAM, environment counts by status, and total environments.
 - `Show history` lives in the `Total` card and controls whether deleted, failed, stopped, and expired records are shown.
 - Newer environments are shown first.

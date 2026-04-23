@@ -85,8 +85,8 @@ Current validations:
 - `profile` must exist in `profiles`.
 - `db_mode` only accepts `none` or `external`.
 - `db_mode=external` requires `db_env`.
-- The user cannot exceed the active environment quota for active `starting` or `ready` environments.
-- Quotas can be overridden per user with `max_environments_by_user`; otherwise `max_environments_per_user` is used.
+- The user cannot exceed the active environment count quota for active `starting` or `ready` environments.
+- The request cannot exceed global or per-user capacity units.
 - Available RAM must remain above `ram_buffer_mb` after reserving `profile.memory_mb`.
 - A requested port must be inside `port_range`, unassigned, and bindable on `proxy_bind_host`.
 
@@ -99,6 +99,7 @@ profiles:
   standard:
     memory_mb: 6144
     cpus: 2
+    capacity_units: 3
     docker_run_args: []
 ```
 
@@ -106,7 +107,10 @@ profiles:
 | --- | --- | --- |
 | `memory_mb` | integer | Memory limit passed to Docker as `--memory`. |
 | `cpus` | number | CPU limit passed to Docker as `--cpus`. |
+| `capacity_units` | integer | Scheduling weight used by broker capacity checks. |
 | `docker_run_args` | array | Extra args inserted before the image name. |
+
+Capacity units are intentionally coarser than RAM. They model the combined cost of memory and CPU so several small environments do not consume all processor headroom just because they fit in RAM.
 
 ## BrokerConfig
 
@@ -132,11 +136,23 @@ Required keys:
 | `max_ttl_hours` | Upper bound for requested TTL. |
 | `cleanup_interval_seconds` | Cleanup loop interval. |
 | `ram_buffer_mb` | Minimum free RAM that must remain after creation. |
-| `max_environments_per_user` | Default active environment quota per user. |
-| `max_environments_by_user` | Optional user-specific active environment quota map. |
+| `capacity` | Optional global capacity-unit guardrail configuration. |
+| `max_environments_per_user` | Legacy/default active environment count quota per user. |
+| `max_environments_by_user` | Optional legacy user-specific active environment count quota map. |
 | `ready_timeout_seconds` | Max time spent waiting for readiness. |
 | `ready_check_interval_seconds` | Delay between readiness checks. |
 | `idle_timeout_minutes` | Inactivity timeout before stopping the environment. |
+
+Example capacity configuration:
+
+```yaml
+capacity:
+  total_units: 12
+  max_active_environments: 4
+  per_user_units:
+    default: 3
+    admin: 12
+```
 
 ## Registry
 
@@ -224,6 +240,7 @@ Dashboard behavior:
 - Dark mode is the default theme.
 - The theme toggle is an icon button in the top-right corner.
 - Connection controls are grouped with dashboard cards instead of the page header.
+- After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
 - The table is horizontally scrollable on small screens.
 - The URL column has a minimum width to keep environment links readable.
@@ -234,7 +251,7 @@ Dashboard actions:
 
 | Action | Endpoint | Effect |
 | --- | --- | --- |
-| `Connect` | `GET /v1/dashboard` and `GET /v1/environments` | Loads summary and environment table with the configured token. |
+| `Connect` | `GET /v1/me`, `GET /v1/dashboard`, and `GET /v1/environments` | Loads token identity, summary, and environment table with the configured token. |
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
 | `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup while still within TTL. |
 | `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties, and removes the registry record. |

@@ -9,14 +9,17 @@ profiles:
   small:
     memory_mb: 4096
     cpus: 1.5
+    capacity_units: 2
     docker_run_args: []
   standard:
     memory_mb: 6144
     cpus: 2
+    capacity_units: 3
     docker_run_args: []
   large:
     memory_mb: 8192
     cpus: 3
+    capacity_units: 6
     docker_run_args: []
 port_range:
   start: 18080
@@ -32,9 +35,12 @@ ready_timeout_seconds: 300
 ready_check_interval_seconds: 5
 idle_timeout_minutes: 60
 ram_buffer_mb: 4096
-max_environments_per_user: 1
-max_environments_by_user:
-  admin: 4
+capacity:
+  total_units: 12
+  max_active_environments: 4
+  per_user_units:
+    default: 3
+    admin: 12
 allowed_image_patterns:
 - ^liferay/dxp:.*$
 - ^liferay/portal:.*$
