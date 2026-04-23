@@ -85,7 +85,8 @@ Current validations:
 - `profile` must exist in `profiles`.
 - `db_mode` only accepts `none` or `external`.
 - `db_mode=external` requires `db_env`.
-- The user cannot exceed `max_environments_per_user` for active `starting` or `ready` environments.
+- The user cannot exceed the active environment quota for active `starting` or `ready` environments.
+- Quotas can be overridden per user with `max_environments_by_user`; otherwise `max_environments_per_user` is used.
 - Available RAM must remain above `ram_buffer_mb` after reserving `profile.memory_mb`.
 - A requested port must be inside `port_range`, unassigned, and bindable on `proxy_bind_host`.
 
@@ -131,7 +132,8 @@ Required keys:
 | `max_ttl_hours` | Upper bound for requested TTL. |
 | `cleanup_interval_seconds` | Cleanup loop interval. |
 | `ram_buffer_mb` | Minimum free RAM that must remain after creation. |
-| `max_environments_per_user` | Active environment quota per user. |
+| `max_environments_per_user` | Default active environment quota per user. |
+| `max_environments_by_user` | Optional user-specific active environment quota map. |
 | `ready_timeout_seconds` | Max time spent waiting for readiness. |
 | `ready_check_interval_seconds` | Delay between readiness checks. |
 | `idle_timeout_minutes` | Inactivity timeout before stopping the environment. |

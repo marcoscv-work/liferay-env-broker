@@ -288,7 +288,8 @@ class Broker:
         registry = self._read_registry()
         active_statuses = ["starting", "ready"]
         active_user_envs = [x for x in registry if x["user"] == req.user and x["status"] in active_statuses]
-        if len(active_user_envs) >= int(self.config["max_environments_per_user"]):
+        max_envs = self._max_environments_for_user(req.user)
+        if len(active_user_envs) >= max_envs:
             raise HTTPException(status_code=409, detail="Maximum active environments reached")
 
         profile = self.config["profiles"][req.profile]
@@ -304,6 +305,10 @@ class Broker:
                 ),
             )
         return profile
+
+    def _max_environments_for_user(self, user: str) -> int:
+        per_user_limits = self.config.get("max_environments_by_user") or {}
+        return int(per_user_limits.get(user, self.config["max_environments_per_user"]))
 
     def _is_port_free(self, port: int) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
