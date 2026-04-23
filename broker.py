@@ -1382,7 +1382,7 @@ function renderStats(data) {
   const cards = [];
   if (data.capacity) cards.push(renderCapacityCard(data.capacity));
   cards.push(`<div class=\"card metric-card ram-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
-  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Visible Environments</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
+  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Visible Environments</strong><span id=\"visibleCountValue\">${data.total}</span></div><div class=\"small\">Rows currently shown</div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
   if ($("showHistory")) {
     $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
@@ -1393,6 +1393,9 @@ function renderCapacityCard(capacity) {
   const total = capacity.total_units || 0;
   const used = capacity.used_units || 0;
   const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const userLimit = capacity.user_unit_limit || 0;
+  const userUsed = capacity.user_units || 0;
+  const userPercent = userLimit ? Math.min(100, Math.round((userUsed / userLimit) * 100)) : 0;
   const costs = Object.entries(capacity.profile_units || {})
     .map(([name, units]) => `<span class=\"profile-cost\">${name}: ${units}u</span>`)
     .join("");
@@ -1401,7 +1404,9 @@ function renderCapacityCard(capacity) {
       <div class=\"metric-line\"><strong>Machine Capacity</strong><span>${used}/${total || "-"}</span></div>
       <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
       <div class=\"small\">Platform: ${capacity.active_environments} active environments</div>
-      <div class=\"small\">Token ${capacity.user}: ${capacity.user_units}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
+      <div class=\"small\" style=\"margin-top:8px\">Your quota</div>
+      <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${userPercent}%\"></div></div>
+      <div class=\"small\">Token ${capacity.user}: ${userUsed}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
       <div class=\"profile-costs\">${costs}</div>
     </div>
   `;
@@ -1423,6 +1428,7 @@ function renderRows(items) {
     ? items
     : items.filter((item) => !["deleted", "failed", "stopped", "expired"].includes(item.status));
   visibleItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if ($("visibleCountValue")) $("visibleCountValue").textContent = String(visibleItems.length);
   $("rows").innerHTML = visibleItems.map(item => `
     <tr>
       <td>${item.id}<div class=\"small\">${item.container_name}</div></td>
