@@ -1173,7 +1173,7 @@ def ui() -> str:
       <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
       <div class=\"ttl-field\">
         <input id=\"ttl\" placeholder=\"ttl hours, max 120, 0 = no TTL\" inputmode=\"numeric\" />
-        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Time to live in hours. Empty uses the default. Maximum is 120 hours. Use 0 to disable maximum lifetime expiration; inactivity cleanup still applies.\">i</span>
+        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Time to live in hours. Empty uses the default. Maximum is 120 hours. Use 0 to disable maximum lifetime expiration. Environments are still stopped after 60 minutes without access.\">i</span>
       </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
@@ -1340,7 +1340,7 @@ function renderStats(data) {
   const cards = [];
   if (data.capacity) cards.push(renderCapacityCard(data.capacity));
   cards.push(`<div class=\"card metric-card ram-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
-  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Accessible Envs</strong><span>${data.total}</span></div><div class=\"small\">For this token</div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
+  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Visible Environments</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
   if ($("showHistory")) {
     $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";

@@ -235,7 +235,7 @@ Main UI areas:
 | Header | Shows `Liferay Environment Broker` and the dark/light theme toggle. |
 | Login/session card | Accepts a `Bearer token`, then collapses into a compact connected-session summary. |
 | Metric cards | Show machine capacity usage, available RAM, and total visible environments. |
-| Accessible Envs card | Shows the number of environments accessible to the current token and contains the `Show history` toggle. |
+| Visible Environments card | Shows the number of environments currently visible in the table and contains the `Show history` toggle. |
 | Create Environment card | Lets users create environments with image, Docker Hub tag suggestions, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
 | Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
 
