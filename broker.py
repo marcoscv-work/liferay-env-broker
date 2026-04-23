@@ -806,6 +806,9 @@ def ui() -> str:
     .starting { color:var(--starting); }
     .failed, .stopped, .expired, .deleted { color:var(--danger); }
     .small { font-size:12px; color:var(--text-muted); }
+    .message { display:none; margin-bottom:12px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+    .message.visible { display:block; }
+    .message.error { border-color:var(--danger); color:var(--danger); }
     .timestamp { font-size:11px; color:var(--text-muted); white-space:nowrap; }
     .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .url { word-break:break-all; }
@@ -925,7 +928,7 @@ def ui() -> str:
     </div>
   </div>
 
-  <div id=\"message\" class=\"small\" style=\"margin-bottom:12px\"></div>
+  <div id=\"message\" class=\"message small\" role=\"status\" aria-live=\"polite\"></div>
   <div class=\"table-wrap\">
     <table>
       <thead>
@@ -993,6 +996,8 @@ function authHeaders() {
 }
 function setMessage(text, isError=false) {
   $("message").textContent = text;
+  $("message").classList.toggle("visible", Boolean(text));
+  $("message").classList.toggle("error", isError);
   $("message").style.color = isError ? "var(--danger)" : "var(--text-muted)";
 }
 function setButtonBusy(id, busy, label) {
@@ -1007,8 +1012,25 @@ async function api(path, options={}) {
     ...options,
     headers: {...authHeaders(), ...(options.headers || {})}
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(formatApiError(await res.text(), res.status));
   return await res.json();
+}
+function formatApiError(rawText, status) {
+  let detail = rawText;
+  try {
+    const parsed = JSON.parse(rawText);
+    detail = parsed.detail || rawText;
+  } catch (_) {}
+  const friendly = {
+    "Maximum active environments reached": "You already have the maximum number of active environments. Delete your current environment before creating a new one.",
+    "Missing Bearer token": "Enter your Bearer token before connecting.",
+    "Invalid token": "The Bearer token is not valid for this broker.",
+    "Payload user does not match the token user": "The selected user does not match the Bearer token. Use the user assigned to that token.",
+    "Image is not allowed": "This Docker image is not allowed by the broker rules.",
+    "Insufficient memory available": "There is not enough free RAM for this profile right now.",
+    "Requested port is already in use": "That port is already in use. Leave the port empty or choose another one."
+  };
+  return friendly[detail] || detail || `Request failed with status ${status}`;
 }
 function renderStats(data) {
   const cards = [];
