@@ -841,13 +841,13 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:minmax(420px,1.4fr) minmax(360px,1fr) minmax(240px,0.7fr) minmax(240px,0.7fr); gap:12px; margin:16px 0; align-items:stretch; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin:16px 0; align-items:stretch; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
-    .connection-panel { min-height:112px; }
+    .connection-panel { grid-column:span 2; min-height:112px; min-width:0; }
     .metric-card { min-height:92px; }
     .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:space-between; font-size:18px; white-space:nowrap; }
     .metric-line span { font-weight:700; }
-    .capacity-card { min-width:0; }
+    .capacity-card { grid-column:span 2; min-width:0; }
     .capacity-bar { height:10px; border-radius:999px; background:var(--surface-muted); overflow:hidden; margin:12px 0 8px; border:1px solid var(--border); }
     .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
@@ -923,11 +923,15 @@ def ui() -> str:
       opacity: 1;
       transform: translate(0, -50%);
     }
+    @media (max-width: 1180px) {
+      .connection-panel, .capacity-card { grid-column:1 / -1; }
+    }
     @media (max-width: 760px) {
       body { margin: 16px; }
       .theme-toggle { top: 12px; right: 12px; }
       .top { padding-right: 48px; }
       .cards { grid-template-columns: 1fr; }
+      .connection-panel, .capacity-card { grid-column:span 1; }
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
