@@ -760,6 +760,7 @@ def ui() -> str:
     }
     button:hover { filter: brightness(1.05); box-shadow: 0 10px 24px var(--button-glow); }
     button:active { transform: translateY(2px) scale(0.98); box-shadow: 0 3px 8px var(--button-glow); }
+    button:disabled { cursor: progress; filter: saturate(0.7); opacity: 0.78; transform:none; }
     button::after {
       content: "";
       position: absolute;
@@ -892,7 +893,7 @@ def ui() -> str:
           <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" />
           <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" />
         </div>
-        <button onclick=\"loadAll()\">Connect</button>
+      <button id=\"connectButton\" onclick=\"loadAll()\">Connect</button>
       </div>
     </div>
     <div id=\"stats\" style=\"display:contents\"></div>
@@ -914,7 +915,7 @@ def ui() -> str:
       </select>
       <input id=\"port\" placeholder=\"optional port\" />
       <input id=\"ttl\" placeholder=\"ttl hours\" />
-      <button onclick=\"createEnv()\">Create</button>
+      <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
     <p class=\"small\">Extra variables use plain JSON.</p>
     <div class=\"toolbar\" style=\"align-items:flex-start\">
@@ -994,6 +995,13 @@ function setMessage(text, isError=false) {
   $("message").textContent = text;
   $("message").style.color = isError ? "var(--danger)" : "var(--text-muted)";
 }
+function setButtonBusy(id, busy, label) {
+  const button = $(id);
+  if (!button) return;
+  if (!button.dataset.defaultLabel) button.dataset.defaultLabel = button.textContent;
+  button.disabled = busy;
+  button.textContent = busy ? label : button.dataset.defaultLabel;
+}
 async function api(path, options={}) {
   const res = await fetch(`${$("baseUrl").value.replace(/\\/$/, "")}${path}`, {
     ...options,
@@ -1039,6 +1047,7 @@ function renderRows(items) {
 }
 async function loadAll() {
   try {
+    setButtonBusy("connectButton", true, "Connecting...");
     saveInputs();
     const [stats, items] = await Promise.all([api('/v1/dashboard'), api('/v1/environments')]);
     renderStats(stats);
@@ -1046,6 +1055,8 @@ async function loadAll() {
     setMessage(`Loaded ${visibleCount(items)} of ${items.length} environments`);
   } catch (e) {
     setMessage(e.message, true);
+  } finally {
+    setButtonBusy("connectButton", false);
   }
 }
 function visibleCount(items) {
@@ -1058,6 +1069,8 @@ function parseJsonSafe(text) {
 }
 async function createEnv() {
   try {
+    setButtonBusy("createButton", true, "Creating...");
+    setMessage("Creating environment. Pulling the Docker image may take a little while on first use.");
     const payload = {
       user: $("user").value,
       image: $("image").value,
@@ -1074,6 +1087,8 @@ async function createEnv() {
     await loadAll();
   } catch (e) {
     setMessage(e.message, true);
+  } finally {
+    setButtonBusy("createButton", false);
   }
 }
 async function deleteEnv(id) {
