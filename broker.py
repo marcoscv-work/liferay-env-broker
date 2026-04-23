@@ -1161,7 +1161,7 @@ def ui() -> str:
 
   <div id=\"loginCard\" class=\"card login-card\">
     <div class=\"connect-card\">
-      <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" />
+      <input id=\"token\" placeholder=\"Team password\" type=\"password\" />
       <button id=\"connectButton\" onclick=\"loadAll()\">Connect</button>
     </div>
   </div>
@@ -1171,7 +1171,7 @@ def ui() -> str:
       <strong id=\"sessionUser\">Connected</strong>
       <div id=\"sessionEndpoint\" class=\"small\"></div>
     </div>
-    <button class=\"secondary\" onclick=\"disconnect()\">Change token</button>
+    <button class=\"secondary\" onclick=\"disconnect()\">Change team password</button>
   </div>
 
   <div id=\"message\" class=\"message small\" role=\"status\" aria-live=\"polite\"></div>
@@ -1375,9 +1375,9 @@ function formatApiError(rawText, status) {
     "Maximum active environments reached": "You already have the maximum number of active environments. Delete your current environment before creating a new one.",
     "Not enough platform capacity available": "There is not enough shared platform capacity for this profile right now. Try a smaller profile or delete another environment.",
     "User capacity limit reached": "This profile would exceed your capacity limit. Delete your current environment or choose a smaller profile.",
-    "Missing Bearer token": "Enter your Bearer token before connecting.",
-    "Invalid token": "The Bearer token is not valid for this broker.",
-    "Payload user does not match the token user": "The selected user does not match the Bearer token. Use the user assigned to that token.",
+    "Missing Bearer token": "Enter your team password before connecting.",
+    "Invalid token": "The team password is not valid for this broker.",
+    "Payload user does not match the token user": "The selected user does not match the team password. Use the user assigned to that password.",
     "Image is not allowed": "This Docker image is not allowed by the broker rules.",
     "Insufficient memory available": "There is not enough free RAM for this profile right now.",
     "Requested port is already in use": "That port is already in use. Leave the port empty or choose another one."
