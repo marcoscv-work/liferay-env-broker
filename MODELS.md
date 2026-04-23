@@ -259,7 +259,7 @@ Dashboard behavior:
 - The create form shows the connected user as text instead of an editable field.
 - Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON.
-- Every environment always injects broker defaults to skip setup, password-change, and reminder-question prompts; custom lines are appended after those defaults.
+- Every environment always injects broker defaults to skip setup and password-change prompts; custom lines are appended after those defaults.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.

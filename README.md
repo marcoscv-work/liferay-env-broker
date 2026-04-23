@@ -291,9 +291,6 @@ Broker-managed default `portal-ext.properties` values:
 setup.wizard.enabled=false
 terms.of.use.required=false
 auth.token.check.enabled=false
-users.reminder.queries.enabled=false
-users.reminder.queries.custom.question.enabled=false
-passwords.default.policy.name=Broker Password Policy
 passwords.default.policy.change.required=false
 default.admin.password=test
 ```
