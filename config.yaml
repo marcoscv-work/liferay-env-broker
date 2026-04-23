@@ -29,7 +29,7 @@ registry_file: registry.json
 properties_dir: portal_properties
 docker_network: bridge
 default_ttl_hours: 8
-max_ttl_hours: 72
+max_ttl_hours: 120
 cleanup_interval_seconds: 30
 ready_timeout_seconds: 300
 ready_check_interval_seconds: 5
@@ -39,6 +39,9 @@ capacity:
   total_units: 12
   per_user_units:
     default: 1
+    developer: 3
+    product: 2
+    design: 2
     admin: 12
 image_cleanup:
   enabled: true

@@ -122,11 +122,15 @@ port_range:
   start: 18080
   end: 18150
 default_ttl_hours: 8
+max_ttl_hours: 120
 idle_timeout_minutes: 60
 capacity:
   total_units: 12
   per_user_units:
     default: 1
+    developer: 3
+    product: 2
+    design: 2
     admin: 12
 image_cleanup:
   enabled: true
@@ -135,6 +139,8 @@ image_cleanup:
 ```
 
 Capacity units are a simple scheduling guardrail. In this default model, `small` and `standard` each cost 1 unit, `large` costs 2 units, and the shared machine has 12 units. That means the platform can run up to 12 standard environments, or a bounded mix of standard and large environments. `per_user_units` limits how much capacity each user can consume independently; regular users get 1 unit by default, while admin can consume the full shared pool.
+
+Set `ttl_hours` to `0` when creating an environment to disable the maximum lifetime expiration. Inactivity cleanup still applies unless that policy is changed separately.
 
 Image cleanup prunes Docker images that are not used by any container and are older than the configured age. It does not remove images used by active or stopped containers.
 

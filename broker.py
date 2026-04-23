@@ -427,10 +427,12 @@ class Broker:
         container_name = self._make_name(req)
         properties_path = self._write_properties(env_id, req.portal_properties)
 
-        ttl_hours = req.ttl_hours or int(self.config["default_ttl_hours"])
-        ttl_hours = min(ttl_hours, int(self.config["max_ttl_hours"]))
+        ttl_hours = int(self.config["default_ttl_hours"]) if req.ttl_hours is None else int(req.ttl_hours)
+        if ttl_hours < 0:
+            raise HTTPException(status_code=400, detail="ttl_hours must be 0 or greater")
+        ttl_hours = min(ttl_hours, int(self.config["max_ttl_hours"])) if ttl_hours else 0
         now = utcnow()
-        expires_at = now + timedelta(hours=ttl_hours)
+        expires_at = None if ttl_hours == 0 else now + timedelta(hours=ttl_hours)
 
         record = {
             "id": env_id,
@@ -442,7 +444,7 @@ class Broker:
             "status": "starting",
             "created_at": now.isoformat(),
             "updated_at": now.isoformat(),
-            "expires_at": expires_at.isoformat(),
+            "expires_at": expires_at.isoformat() if expires_at else None,
             "last_access_at": None,
             "idle_timeout_minutes": int(self.config["idle_timeout_minutes"]),
             "url": self.config["base_url_template"].format(port=host_port, container_name=container_name, env_id=env_id),
@@ -651,8 +653,8 @@ class Broker:
         for record in self._read_registry():
             if record.get("status") not in ["starting", "ready"]:
                 continue
-            expires_at = datetime.fromisoformat(record["expires_at"])
-            if now >= expires_at:
+            expires_at = datetime.fromisoformat(record["expires_at"]) if record.get("expires_at") else None
+            if expires_at and now >= expires_at:
                 self._destroy_record(record, status="expired")
                 continue
             last_access_at = datetime.fromisoformat(record["last_access_at"]) if record.get("last_access_at") else None
@@ -1122,7 +1124,7 @@ def ui() -> str:
         <option value=\"external\">External DB</option>
       </select>
       <input id=\"port\" placeholder=\"optional port\" />
-      <input id=\"ttl\" placeholder=\"ttl hours\" />
+      <input id=\"ttl\" placeholder=\"ttl hours, max 120, 0 = no TTL\" />
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
     <p class=\"small\">Extra variables use plain JSON.</p>
@@ -1327,7 +1329,7 @@ function renderRows(items) {
       <td>${item.image}<div class=\"small\">DB: ${item.db_mode}</div></td>
       <td>${item.host_port}</td>
       <td class=\"url\"><a href=\"${item.url}\" target=\"_blank\">${item.url}</a></td>
-      <td>${item.last_access_at || "no access yet"}<div class=\"small\">TTL ${item.expires_at}</div></td>
+      <td>${item.last_access_at || "no access yet"}<div class=\"small\">TTL ${item.expires_at || "none"}</div></td>
       <td class=\"timestamp\">${item.created_at}</td>
       <td>
         <div class=\"actions\">

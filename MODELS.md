@@ -22,7 +22,7 @@ Main persisted fields:
 | `created_at` | datetime ISO | Creation timestamp in UTC. |
 | `updated_at` | datetime ISO | Last registry update timestamp. |
 | `ready_at` | datetime ISO | Timestamp when readiness passed, when applicable. |
-| `expires_at` | datetime ISO | Max TTL expiration timestamp. |
+| `expires_at` | datetime ISO/null | Max TTL expiration timestamp, or `null` when TTL expiration is disabled. |
 | `deleted_at` | datetime ISO | Destruction timestamp, when applicable. |
 | `last_access_at` | datetime ISO/null | Last request seen by the proxy or manual touch endpoint. |
 | `last_access_reason` | string | Access update reason, such as `http_request` or `manual_touch`. |
@@ -74,7 +74,7 @@ Pydantic model accepted by `POST /v1/environments`.
 | `portal_properties` | string/null | no | `null` | Complete `portal-ext.properties` content. |
 | `host_port` | integer/null | no | `null` | Requested host port. If omitted, the broker assigns a free one. |
 | `env` | object | no | `{}` | Additional environment variables. |
-| `ttl_hours` | integer/null | no | `null` | Requested TTL, capped by `max_ttl_hours`. |
+| `ttl_hours` | integer/null | no | `null` | Requested TTL, capped by `max_ttl_hours`; `0` disables TTL expiration. |
 | `db_mode` | string | no | `none` | `none` or `external`. |
 | `db_env` | object | no | `{}` | External DB variables. Required when `db_mode=external`. |
 
@@ -133,7 +133,7 @@ Required keys:
 | `properties_dir` | Directory for generated `portal-ext.properties` files. |
 | `docker_network` | Docker network passed to `docker run --network`. |
 | `default_ttl_hours` | Default TTL when the user does not request one. |
-| `max_ttl_hours` | Upper bound for requested TTL. |
+| `max_ttl_hours` | Upper bound for requested TTL. Use `ttl_hours=0` to disable TTL expiration for one environment. |
 | `cleanup_interval_seconds` | Cleanup loop interval. |
 | `ram_buffer_mb` | Minimum free RAM that must remain after creation. |
 | `capacity` | Optional global capacity-unit guardrail configuration. |
@@ -151,6 +151,9 @@ capacity:
   total_units: 12
   per_user_units:
     default: 1
+    developer: 3
+    product: 2
+    design: 2
     admin: 12
 ```
 
