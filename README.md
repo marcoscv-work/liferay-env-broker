@@ -109,15 +109,15 @@ profiles:
   small:
     memory_mb: 4096
     cpus: 1.5
-    capacity_units: 2
+    capacity_units: 1
   standard:
     memory_mb: 6144
     cpus: 2
-    capacity_units: 3
+    capacity_units: 1
   large:
     memory_mb: 8192
     cpus: 3
-    capacity_units: 6
+    capacity_units: 2
 port_range:
   start: 18080
   end: 18150
@@ -126,7 +126,7 @@ idle_timeout_minutes: 60
 capacity:
   total_units: 12
   per_user_units:
-    default: 3
+    default: 1
     admin: 12
 image_cleanup:
   enabled: true
@@ -134,7 +134,7 @@ image_cleanup:
   max_unused_age_hours: 168
 ```
 
-Capacity units are a simple scheduling guardrail. They avoid treating every environment as equal: `small` costs fewer units than `large`. `total_units` protects the shared machine capacity, while `per_user_units` limits how much capacity each user can consume independently. With the example above, an admin can consume the full 12-unit pool, while regular users can consume up to 3 units each as long as shared capacity remains available.
+Capacity units are a simple scheduling guardrail. In this default model, `small` and `standard` each cost 1 unit, `large` costs 2 units, and the shared machine has 12 units. That means the platform can run up to 12 standard environments, or a bounded mix of standard and large environments. `per_user_units` limits how much capacity each user can consume independently; regular users get 1 unit by default, while admin can consume the full shared pool.
 
 Image cleanup prunes Docker images that are not used by any container and are older than the configured age. It does not remove images used by active or stopped containers.
 

@@ -9,17 +9,17 @@ profiles:
   small:
     memory_mb: 4096
     cpus: 1.5
-    capacity_units: 2
+    capacity_units: 1
     docker_run_args: []
   standard:
     memory_mb: 6144
     cpus: 2
-    capacity_units: 3
+    capacity_units: 1
     docker_run_args: []
   large:
     memory_mb: 8192
     cpus: 3
-    capacity_units: 6
+    capacity_units: 2
     docker_run_args: []
 port_range:
   start: 18080
@@ -38,7 +38,7 @@ ram_buffer_mb: 4096
 capacity:
   total_units: 12
   per_user_units:
-    default: 3
+    default: 1
     admin: 12
 image_cleanup:
   enabled: true

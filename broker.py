@@ -697,6 +697,7 @@ class Broker:
             "used_units": used_units,
             "available_units": max(total_units - used_units, 0) if total_units else None,
             "active_environments": len(active),
+            "user": token_user,
             "user_units": user_used_units,
             "user_unit_limit": user_limit,
             "user_active_environments": user_active,
@@ -1308,7 +1309,7 @@ function renderCapacityCard(capacity) {
       <div class=\"metric-line\"><strong>Capacity</strong><span>${used}/${total || "-"}</span></div>
       <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
       <div class=\"small\">Platform: ${capacity.active_environments} active environments</div>
-      <div class=\"small\">You: ${capacity.user_units}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
+      <div class=\"small\">Token ${capacity.user}: ${capacity.user_units}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
       <div class=\"profile-costs\">${costs}</div>
     </div>
   `;

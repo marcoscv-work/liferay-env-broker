@@ -99,7 +99,7 @@ profiles:
   standard:
     memory_mb: 6144
     cpus: 2
-    capacity_units: 3
+    capacity_units: 1
     docker_run_args: []
 ```
 
@@ -107,7 +107,7 @@ profiles:
 | --- | --- | --- |
 | `memory_mb` | integer | Memory limit passed to Docker as `--memory`. |
 | `cpus` | number | CPU limit passed to Docker as `--cpus`. |
-| `capacity_units` | integer | Scheduling weight used by broker capacity checks. |
+| `capacity_units` | integer | Scheduling weight used by broker capacity checks. By default, `small` and `standard` cost 1 unit and `large` costs 2 units. |
 | `docker_run_args` | array | Extra args inserted before the image name. |
 
 Capacity units are intentionally coarser than RAM. They model the combined cost of memory and CPU so several small environments do not consume all processor headroom just because they fit in RAM.
@@ -150,7 +150,7 @@ Example capacity configuration:
 capacity:
   total_units: 12
   per_user_units:
-    default: 3
+    default: 1
     admin: 12
 ```
 
