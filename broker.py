@@ -921,6 +921,8 @@ def ui() -> str:
       background:var(--success-bg);
     }
     .session-card.visible { display:flex; }
+    .authenticated-area { display:none; }
+    .authenticated-area.visible { display:block; }
     .cards {
       display:grid;
       grid-template-columns:repeat(4, minmax(0, 1fr));
@@ -943,9 +945,10 @@ def ui() -> str:
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
-    .image-picker { display:flex; flex-direction:column; gap:6px; min-width:280px; }
+    .image-picker { display:grid; gap:6px; min-width:280px; align-self:flex-start; }
     .image-picker input { width:100%; }
-    .image-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .image-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; line-height:1; }
+    .create-toolbar { align-items:flex-start; }
     .history-toggle { display:flex; align-items:center; gap:8px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
@@ -1049,6 +1052,7 @@ def ui() -> str:
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
+      .create-toolbar { align-items:stretch; }
       .image-picker { width:100%; min-width:0; }
       .image-links button, .image-links a { width:auto !important; }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
@@ -1084,11 +1088,12 @@ def ui() -> str:
     <button class=\"secondary\" onclick=\"disconnect()\">Change token</button>
   </div>
 
+  <div id=\"authenticatedArea\" class=\"authenticated-area\">
   <div id=\"stats\" class=\"cards\"></div>
 
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
-    <div class=\"toolbar\">
+    <div class=\"toolbar create-toolbar\">
       <input id=\"user\" placeholder=\"user\" />
       <div class=\"image-picker\">
         <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
@@ -1129,6 +1134,7 @@ def ui() -> str:
       </thead>
       <tbody id=\"rows\"></tbody>
     </table>
+  </div>
   </div>
 
 <script>
@@ -1172,6 +1178,7 @@ function brokerBaseUrl() {
 function setConnectedSession(user) {
   $("loginCard").classList.add("hidden");
   $("sessionCard").classList.add("visible");
+  $("authenticatedArea").classList.add("visible");
   $("sessionUser").textContent = `Connected as ${user}`;
   $("sessionEndpoint").textContent = brokerBaseUrl();
 }
@@ -1188,6 +1195,7 @@ function disconnect() {
   $("rows").innerHTML = "";
   $("sessionCard").classList.remove("visible");
   $("loginCard").classList.remove("hidden");
+  $("authenticatedArea").classList.remove("visible");
   setMessage("");
 }
 function toggleTheme() {
