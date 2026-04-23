@@ -36,6 +36,10 @@ default_portal_properties:
   - 'false'
 - - passwords.default.policy.change.required
   - 'false'
+- - users.reminder.queries.enabled
+  - 'false'
+- - company.security.update.password.required
+  - 'false'
 - - default.admin.password
   - test
 docker_network: bridge

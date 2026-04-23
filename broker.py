@@ -28,6 +28,8 @@ DEFAULT_PORTAL_PROPERTIES = [
     ("terms.of.use.required", "false"),
     ("auth.token.check.enabled", "false"),
     ("passwords.default.policy.change.required", "false"),
+    ("users.reminder.queries.enabled", "false"),
+    ("company.security.update.password.required", "false"),
     ("default.admin.password", "test"),
 ]
 
@@ -1210,9 +1212,9 @@ def ui() -> str:
         </div>
       </div>
       <select id=\"profile\">
-        <option value=\"small\">small</option>
-        <option value=\"standard\" selected>standard</option>
-        <option value=\"large\">large</option>
+        <option value=\"small\">small · 4 GB</option>
+        <option value=\"standard\" selected>standard · 6 GB</option>
+        <option value=\"large\">large · 8 GB</option>
       </select>
       <select id=\"db_mode\" onchange=\"syncDbFields()\">
         <option value=\"none\" selected>No external DB</option>

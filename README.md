@@ -292,6 +292,8 @@ setup.wizard.enabled=false
 terms.of.use.required=false
 auth.token.check.enabled=false
 passwords.default.policy.change.required=false
+users.reminder.queries.enabled=false
+company.security.update.password.required=false
 default.admin.password=test
 ```
 
