@@ -1377,6 +1377,7 @@ async function loadImageSuggestions(force=false) {
 async function api(path, options={}) {
   const res = await fetch(`${brokerBaseUrl()}${path}`, {
     ...options,
+    cache: "no-store",
     headers: {...authHeaders(), ...(options.headers || {})}
   });
   if (!res.ok) throw new Error(formatApiError(await res.text(), res.status));
@@ -1457,6 +1458,24 @@ function formatTtl(expiresAt) {
   if (hours > 0) return `TTL ${hours}h ${minutes}m left`;
   return `TTL ${minutes}m left`;
 }
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+function formatAccess(value, reason) {
+  if (!value) return `<span class=\"small\">no access yet</span>`;
+  const label = reason === "manual_touch" ? "manual touch" : reason === "http_request" ? "live traffic" : "access";
+  return `${formatDateTime(value)}<div class=\"small\">${label}</div>`;
+}
 function renderRows(items) {
   const visibleItems = $("showHistory") && $("showHistory").checked
     ? items
@@ -1471,8 +1490,8 @@ function renderRows(items) {
       <td>${item.image}<div class=\"small\">DB: ${item.db_mode}</div></td>
       <td>${item.host_port}</td>
       <td class=\"url\"><a href=\"${item.url}\" target=\"_blank\">${item.url}</a></td>
-      <td>${item.last_access_at || "no access yet"}</td>
-      <td class=\"timestamp\">${item.created_at}<div class=\"small ttl-remaining\">${formatTtl(item.expires_at)}</div></td>
+      <td class=\"timestamp\">${formatAccess(item.last_access_at, item.last_access_reason)}</td>
+      <td class=\"timestamp\">${formatDateTime(item.created_at)}<div class=\"small ttl-remaining\">${formatTtl(item.expires_at)}</div></td>
       <td>
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
@@ -1547,7 +1566,7 @@ async function touchEnv(id) {
     setMessage(e.message, true);
   }
 }
-setInterval(() => { if ($("token").value) loadAll(); }, 15000);
+setInterval(() => { if ($("token").value) loadAll(); }, 5000);
 if ($("token").value) loadAll();
 </script>
 </body>
