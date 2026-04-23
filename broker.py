@@ -702,6 +702,7 @@ class Broker:
 
 broker = Broker(CONFIG_PATH)
 app = FastAPI(title="Liferay Local Environment Broker", version="2.0.0")
+docker_tag_cache: Dict[str, Any] = {"expires_at": 0, "data": None}
 
 
 @app.get("/health")
@@ -759,6 +760,40 @@ def dashboard(authorization: Optional[str] = Header(default=None)) -> Dict[str, 
     return broker.dashboard_stats(token_user)
 
 
+@app.get("/v1/images/liferay-dxp-tags")
+def liferay_dxp_tags(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    broker.authenticate(authorization)
+    now = time.time()
+    if docker_tag_cache["data"] and docker_tag_cache["expires_at"] > now:
+        return docker_tag_cache["data"]
+
+    source_url = "https://hub.docker.com/r/liferay/dxp/tags"
+    api_url = "https://hub.docker.com/v2/repositories/liferay/dxp/tags?page_size=12&ordering=last_updated"
+    try:
+        resp = requests.get(api_url, timeout=8)
+        resp.raise_for_status()
+        payload = resp.json()
+        tags = [
+            {
+                "name": item["name"],
+                "image": f"liferay/dxp:{item['name']}",
+                "last_updated": item.get("last_updated"),
+            }
+            for item in payload.get("results", [])
+            if item.get("name")
+        ]
+        data = {"repository": "liferay/dxp", "source_url": source_url, "tags": tags}
+        docker_tag_cache["data"] = data
+        docker_tag_cache["expires_at"] = now + 300
+        return data
+    except requests.RequestException as exc:
+        if docker_tag_cache["data"]:
+            stale_data = dict(docker_tag_cache["data"])
+            stale_data["stale"] = True
+            return stale_data
+        raise HTTPException(status_code=502, detail=f"Could not load Docker Hub tags: {exc}")
+
+
 @app.get("/ui", response_class=HTMLResponse)
 def ui() -> str:
     return """<!doctype html>
@@ -785,6 +820,7 @@ def ui() -> str:
       --button-glow: rgba(79,140,255,0.35);
       --input-bg: #0f172a;
       --table-head: #18233d;
+      --success-bg: rgba(45,212,191,0.12);
     }
     [data-theme="light"] {
       --bg: #f6f8fb;
@@ -803,6 +839,7 @@ def ui() -> str:
       --button-glow: rgba(15,98,254,0.25);
       --input-bg: #ffffff;
       --table-head: #eff6ff;
+      --success-bg: rgba(15,118,110,0.10);
     }
     * { box-sizing: border-box; }
     body {
@@ -847,6 +884,17 @@ def ui() -> str:
     }
     button:active::after { opacity: 1; transform: scale(1.4); }
     button.secondary { background: var(--secondary); box-shadow: none; }
+    button.link-button {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--accent-strong);
+      box-shadow: none;
+      font: inherit;
+      text-align: left;
+    }
+    button.link-button:hover { filter:none; text-decoration:underline; box-shadow:none; }
     .theme-toggle {
       position: fixed;
       top: 18px;
@@ -862,18 +910,28 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
+    .login-card { max-width:540px; margin:16px 0; }
+    .login-card.hidden { display:none; }
+    .session-card {
+      display:none;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:16px 0;
+      background:var(--success-bg);
+    }
+    .session-card.visible { display:flex; }
     .cards {
       display:grid;
       grid-template-columns:repeat(4, minmax(0, 1fr));
       grid-template-areas:
-        "connect connect capacity capacity"
+        "capacity capacity ram total"
         "ram total . .";
       gap:12px;
       margin:16px 0;
       align-items:stretch;
     }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
-    .connection-panel { grid-area:connect; min-height:112px; min-width:0; }
     .metric-card { min-height:92px; }
     .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:space-between; font-size:18px; white-space:nowrap; }
     .metric-line span { font-weight:700; }
@@ -887,6 +945,9 @@ def ui() -> str:
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
+    .image-picker { display:flex; flex-direction:column; gap:6px; min-width:280px; }
+    .image-picker input { width:100%; }
+    .image-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     .history-toggle { display:flex; align-items:center; gap:8px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
@@ -958,14 +1019,13 @@ def ui() -> str:
     @media (min-width: 1800px) {
       .cards {
         grid-template-columns:repeat(6, minmax(0, 1fr));
-        grid-template-areas:"connect connect capacity capacity ram total";
+        grid-template-areas:"capacity capacity capacity ram total total";
       }
     }
     @media (max-width: 980px) {
       .cards {
         grid-template-columns:repeat(2, minmax(0, 1fr));
         grid-template-areas:
-          "connect connect"
           "capacity capacity"
           "ram total";
       }
@@ -976,7 +1036,6 @@ def ui() -> str:
       .cards {
         grid-template-columns:1fr;
         grid-template-areas:
-          "connect"
           "capacity"
           "ram"
           "total";
@@ -988,9 +1047,12 @@ def ui() -> str:
       body { margin: 16px; }
       .theme-toggle { top: 12px; right: 12px; }
       .top { padding-right: 48px; }
+      .session-card.visible { align-items:stretch; flex-direction:column; }
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
+      .image-picker { width:100%; min-width:0; }
+      .image-links button, .image-links a { width:auto !important; }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
       .connect-card button { width: 100%; }
       .table-wrap {
@@ -1009,16 +1071,22 @@ def ui() -> str:
     <h1 style=\"margin:0\">Liferay Environment Broker</h1>
   </div>
 
-  <div class=\"cards\">
-    <div class=\"card connection-panel\">
-      <div class=\"connect-card\">
-        <div class=\"connect-fields\">
-          <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" />
-          <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" />
-        </div>
+  <div id=\"loginCard\" class=\"card login-card\">
+    <div class=\"connect-card\">
+      <input id=\"token\" placeholder=\"Bearer token\" type=\"password\" />
       <button id=\"connectButton\" onclick=\"loadAll()\">Connect</button>
-      </div>
     </div>
+  </div>
+
+  <div id=\"sessionCard\" class=\"card session-card\">
+    <div>
+      <strong id=\"sessionUser\">Connected</strong>
+      <div id=\"sessionEndpoint\" class=\"small\"></div>
+    </div>
+    <button class=\"secondary\" onclick=\"disconnect()\">Change token</button>
+  </div>
+
+  <div class=\"cards\">
     <div id=\"stats\" style=\"display:contents\"></div>
   </div>
 
@@ -1026,7 +1094,14 @@ def ui() -> str:
     <h2 style=\"margin-top:0\">Create Environment</h2>
     <div class=\"toolbar\">
       <input id=\"user\" placeholder=\"user\" />
-      <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" style=\"min-width:280px\" />
+      <div class=\"image-picker\">
+        <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
+        <datalist id=\"imageSuggestions\"></datalist>
+        <div class=\"small image-links\">
+          <button class=\"link-button\" type=\"button\" onclick=\"loadImageSuggestions(true)\">Refresh image suggestions</button>
+          <a href=\"https://hub.docker.com/r/liferay/dxp/tags\" target=\"_blank\" rel=\"noreferrer\">Liferay Docker</a>
+        </div>
+      </div>
       <select id=\"profile\">
         <option value=\"small\">small</option>
         <option value=\"standard\" selected>standard</option>
@@ -1063,12 +1138,12 @@ def ui() -> str:
 <script>
 const $ = (id) => document.getElementById(id);
 const storageKeys = {
-  baseUrl: "liferayBroker.baseUrl",
   token: "liferayBroker.token",
   user: "liferayBroker.user",
   showHistory: "liferayBroker.showHistory",
   theme: "liferayBroker.theme"
 };
+let imageSuggestionsLoaded = false;
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   const toggle = $("themeToggle");
@@ -1078,14 +1153,12 @@ function applyTheme(theme) {
   toggle.title = switchingToLight ? "Switch to light mode" : "Switch to dark mode";
 }
 function restoreSavedInputs() {
-  if ($("baseUrl")) $("baseUrl").value = localStorage.getItem(storageKeys.baseUrl) || window.location.origin;
   if ($("token")) $("token").value = localStorage.getItem(storageKeys.token) || "";
   if ($("user")) $("user").value = localStorage.getItem(storageKeys.user) || "";
   if ($("showHistory")) $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
   applyTheme(localStorage.getItem(storageKeys.theme) || "dark");
 }
 function saveInputs() {
-  if ($("baseUrl")) localStorage.setItem(storageKeys.baseUrl, $("baseUrl").value);
   if ($("token")) localStorage.setItem(storageKeys.token, $("token").value);
   if ($("user")) localStorage.setItem(storageKeys.user, $("user").value);
   if ($("showHistory")) localStorage.setItem(storageKeys.showHistory, $("showHistory").checked ? "true" : "false");
@@ -1096,6 +1169,30 @@ function setTokenUser(user) {
   $("user").readOnly = true;
   $("user").title = "Filled from the Bearer token";
   saveInputs();
+}
+function brokerBaseUrl() {
+  return window.location.origin;
+}
+function setConnectedSession(user) {
+  $("loginCard").classList.add("hidden");
+  $("sessionCard").classList.add("visible");
+  $("sessionUser").textContent = `Connected as ${user}`;
+  $("sessionEndpoint").textContent = brokerBaseUrl();
+}
+function disconnect() {
+  localStorage.removeItem(storageKeys.token);
+  localStorage.removeItem(storageKeys.user);
+  if ($("token")) $("token").value = "";
+  if ($("user")) {
+    $("user").value = "";
+    $("user").readOnly = false;
+    $("user").title = "";
+  }
+  $("stats").innerHTML = "";
+  $("rows").innerHTML = "";
+  $("sessionCard").classList.remove("visible");
+  $("loginCard").classList.remove("hidden");
+  setMessage("");
 }
 function toggleTheme() {
   const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -1113,7 +1210,7 @@ function bindSavedInput(id) {
     if ($("token").value) loadAll();
   });
 }
-["baseUrl", "token", "user"].forEach(bindSavedInput);
+["token", "user"].forEach(bindSavedInput);
 function authHeaders() {
   saveInputs();
   return {
@@ -1134,8 +1231,24 @@ function setButtonBusy(id, busy, label) {
   button.disabled = busy;
   button.textContent = busy ? label : button.dataset.defaultLabel;
 }
+function renderImageSuggestions(tags) {
+  const datalist = $("imageSuggestions");
+  if (!datalist) return;
+  datalist.innerHTML = tags.map((tag) => `<option value=\"${tag.image}\">${tag.name}</option>`).join("");
+}
+async function loadImageSuggestions(force=false) {
+  if (imageSuggestionsLoaded && !force) return;
+  if (!$("token").value) return;
+  try {
+    const data = await api("/v1/images/liferay-dxp-tags");
+    renderImageSuggestions(data.tags || []);
+    imageSuggestionsLoaded = true;
+  } catch (e) {
+    if (force) setMessage(e.message, true);
+  }
+}
 async function api(path, options={}) {
-  const res = await fetch(`${$("baseUrl").value.replace(/\\/$/, "")}${path}`, {
+  const res = await fetch(`${brokerBaseUrl()}${path}`, {
     ...options,
     headers: {...authHeaders(), ...(options.headers || {})}
   });
@@ -1219,8 +1332,10 @@ async function loadAll() {
     saveInputs();
     const [me, stats, items] = await Promise.all([api('/v1/me'), api('/v1/dashboard'), api('/v1/environments')]);
     setTokenUser(me.user);
+    setConnectedSession(me.user);
     renderStats(stats);
     renderRows(items);
+    loadImageSuggestions().catch(() => {});
     setMessage(`Loaded ${visibleCount(items)} of ${items.length} environments`);
   } catch (e) {
     setMessage(e.message, true);
@@ -1277,6 +1392,7 @@ async function touchEnv(id) {
   }
 }
 setInterval(() => { if ($("token").value) loadAll(); }, 15000);
+if ($("token").value) loadAll();
 </script>
 </body>
 </html>"""

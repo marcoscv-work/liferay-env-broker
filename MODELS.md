@@ -231,15 +231,14 @@ Main UI areas:
 | Area | Purpose |
 | --- | --- |
 | Header | Shows `Liferay Environment Broker` and the dark/light theme toggle. |
-| Connection card | Holds `Base URL`, `Bearer token`, and `Connect`. |
-| Metric cards | Show capacity usage, available RAM, status counts, and total visible environments. |
+| Login/session card | Accepts a `Bearer token`, then collapses into a compact connected-session summary. |
+| Metric cards | Show capacity usage, available RAM, and total visible environments. |
 | Total card | Also contains the `Show history` toggle. |
-| Create Environment card | Lets users create environments with image, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
+| Create Environment card | Lets users create environments with image, Docker Hub tag suggestions, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
 | Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
 
 Dashboard persistence:
 
-- `liferayBroker.baseUrl`
 - `liferayBroker.token`
 - `liferayBroker.user`
 - `liferayBroker.showHistory`
@@ -251,8 +250,10 @@ Dashboard behavior:
 
 - Dark mode is the default theme.
 - The theme toggle is an icon button in the top-right corner.
-- Connection controls are grouped with dashboard cards instead of the page header.
+- The broker URL is derived from the current `/ui` page with `window.location.origin`.
+- The login controls hide after a successful connection.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
+- Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
 - The table is horizontally scrollable on small screens.

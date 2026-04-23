@@ -187,10 +187,12 @@ The web UI is the recommended workflow for product, design, QA, and other non-CL
 Dashboard behavior:
 
 - Dark mode is enabled by default and can be toggled from the icon in the top-right corner.
-- `Base URL`, `Bearer token`, and `Connect` live in the dashboard card area.
-- `Base URL`, `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
+- The dashboard derives the broker URL from the current `/ui` page, so users only enter a `Bearer token`.
+- After connecting, the token card is hidden and a compact session card shows the connected user and broker endpoint.
+- `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
-- Summary cards show available RAM, environment counts by status, and total environments.
+- The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
+- Summary cards show available RAM and total environments.
 - Capacity is shown visually as used/total units, active environment count, and profile costs.
 - `Show history` lives in the `Total` card and controls whether deleted, failed, stopped, and expired records are shown.
 - Newer environments are shown first.
@@ -205,8 +207,8 @@ Environment actions:
 Suggested non-technical flow:
 
 1. Open `http://BROKER_HOST:8899/ui`.
-2. Enter the broker URL and Bearer token once.
-3. Choose a user, image, and profile.
+2. Enter the Bearer token once.
+3. Choose an image and profile.
 4. Click `Create`.
 5. Open the returned environment URL from the table.
 
