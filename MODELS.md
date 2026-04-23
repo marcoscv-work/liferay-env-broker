@@ -236,7 +236,7 @@ Main UI areas:
 | Login/session card | Accepts a `Bearer token`, then collapses into a compact connected-session summary. |
 | Metric cards | Show machine capacity usage, available RAM, and total visible environments. |
 | Visible Environments card | Shows the number of environments currently visible in the table and contains the `Show history` toggle. |
-| Create Environment card | Lets users create environments with image, Docker Hub tag suggestions, profile, DB mode, optional port, TTL, env vars, DB env vars, and portal properties. |
+| Create Environment card | Lets users create environments with image, Docker Hub tag suggestions, profile, DB mode, optional port, TTL, labeled env var fields, conditional DB vars, and advanced portal properties. |
 | Environment table | Lists environments newest-first with status, user, image, port, URL, access timestamps, created timestamp, and actions. |
 
 Dashboard persistence:
@@ -256,6 +256,8 @@ Dashboard behavior:
 - The login controls hide after a successful connection.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - The create form shows the connected user as text instead of an editable field.
+- Environment variables and external DB variables are labeled JSON fields; DB variables are shown only when `External DB` is selected.
+- `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.

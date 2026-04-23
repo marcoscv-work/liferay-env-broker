@@ -973,6 +973,14 @@ def ui() -> str:
       cursor:help;
     }
     .ttl-remaining { color:var(--ttl) !important; font-weight:700; }
+    .advanced-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; align-items:start; margin-top:12px; }
+    .field-block { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .field-block label, details summary { font-weight:700; color:var(--text); }
+    .field-block textarea { width:100%; min-width:0; resize:vertical; }
+    .db-env-field.hidden { display:none; }
+    details.advanced-properties { margin-top:12px; }
+    details.advanced-properties summary { cursor:pointer; }
+    details.advanced-properties textarea { width:100%; margin-top:8px; min-width:0; resize:vertical; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
@@ -1107,6 +1115,7 @@ def ui() -> str:
       .create-toolbar { align-items:stretch; margin-bottom:0; }
       .field-user { min-height:auto; padding:0; }
       .port-input, .ttl-field { width:100%; flex:1 1 auto; }
+      .advanced-grid { grid-template-columns:1fr; }
       .image-picker { width:100%; min-width:0; }
       .image-links { position:static; }
       .image-links button, .image-links a { width:auto !important; }
@@ -1166,7 +1175,7 @@ def ui() -> str:
         <option value=\"standard\" selected>standard</option>
         <option value=\"large\">large</option>
       </select>
-      <select id=\"db_mode\">
+      <select id=\"db_mode\" onchange=\"syncDbFields()\">
         <option value=\"none\" selected>No external DB</option>
         <option value=\"external\">External DB</option>
       </select>
@@ -1177,12 +1186,21 @@ def ui() -> str:
       </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
-    <p class=\"small\">Extra variables use plain JSON.</p>
-    <div class=\"toolbar\" style=\"align-items:flex-start\">
-      <textarea id=\"env\" placeholder='{"LIFERAY_JVM_OPTS":"-Xms2g -Xmx4g"}' rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
-      <textarea id=\"db_env\" placeholder='{"LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL":"jdbc:postgresql://..."}' rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
-      <textarea id=\"props\" placeholder=\"optional portal-ext.properties\" rows=\"4\" style=\"min-width:360px;flex:1\"></textarea>
+    <p class=\"small\">Environment and database fields use JSON. Portal properties use .properties syntax.</p>
+    <div class=\"advanced-grid\">
+      <div class=\"field-block\">
+        <label for=\"env\">Environment variables JSON</label>
+        <textarea id=\"env\" placeholder='{\"LIFERAY_JVM_OPTS\":\"-Xms2g -Xmx4g\"}' rows=\"4\"></textarea>
+      </div>
+      <div id=\"dbEnvField\" class=\"field-block db-env-field hidden\">
+        <label for=\"db_env\">External DB variables JSON</label>
+        <textarea id=\"db_env\" placeholder='{\"LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL\":\"jdbc:postgresql://...\"}' rows=\"4\"></textarea>
+      </div>
     </div>
+    <details class=\"advanced-properties\">
+      <summary>Advanced portal-ext.properties</summary>
+      <textarea id=\"props\" placeholder=\"feature.flag.LPD-12345=true&#10;feature.flag.LPD-12345.system=true\" rows=\"5\"></textarea>
+    </details>
   </div>
 
   <div class=\"table-wrap\">
@@ -1262,6 +1280,12 @@ function toggleTheme() {
   applyTheme(nextTheme);
 }
 restoreSavedInputs();
+function syncDbFields() {
+  const showDbEnv = $("db_mode") && $("db_mode").value === "external";
+  if ($("dbEnvField")) $("dbEnvField").classList.toggle("hidden", !showDbEnv);
+  if (!showDbEnv && $("db_env")) $("db_env").value = "";
+}
+syncDbFields();
 function bindSavedInput(id) {
   if (!$(id)) return;
   if ($(id).dataset.bound === "true") return;
