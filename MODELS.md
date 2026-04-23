@@ -257,7 +257,7 @@ Dashboard behavior:
 - The login controls hide after a successful connection.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - The create form shows the connected user as text instead of an editable field.
-- Environment variables and external DB variables are labeled JSON fields; DB variables are shown only when `External DB` is selected.
+- Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.

@@ -996,9 +996,9 @@ def ui() -> str:
     .field-block label, details summary { font-weight:700; color:var(--text); }
     .field-block textarea { width:100%; min-width:0; resize:vertical; }
     .db-env-field.hidden { display:none; }
-    details.advanced-properties { margin-top:12px; }
-    details.advanced-properties summary { cursor:pointer; }
-    details.advanced-properties textarea { width:100%; margin-top:8px; min-width:0; resize:vertical; }
+    details.advanced-panel { margin-top:12px; }
+    details.advanced-panel summary { cursor:pointer; font-weight:700; color:var(--text); }
+    details.advanced-panel textarea { width:100%; margin-top:8px; min-width:0; resize:vertical; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
@@ -1205,17 +1205,17 @@ def ui() -> str:
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
     <p class=\"small\">Environment and database fields use JSON. Portal properties use .properties syntax.</p>
+    <details class=\"advanced-panel\">
+      <summary>Environment variables JSON</summary>
+      <textarea id=\"env\" placeholder='{\"LIFERAY_JVM_OPTS\":\"-Xms2g -Xmx4g\"}' rows=\"4\"></textarea>
+    </details>
     <div class=\"advanced-grid\">
-      <div class=\"field-block\">
-        <label for=\"env\">Environment variables JSON</label>
-        <textarea id=\"env\" placeholder='{\"LIFERAY_JVM_OPTS\":\"-Xms2g -Xmx4g\"}' rows=\"4\"></textarea>
-      </div>
       <div id=\"dbEnvField\" class=\"field-block db-env-field hidden\">
         <label for=\"db_env\">External DB variables JSON</label>
         <textarea id=\"db_env\" placeholder='{\"LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL\":\"jdbc:postgresql://...\"}' rows=\"4\"></textarea>
       </div>
     </div>
-    <details class=\"advanced-properties\">
+    <details class=\"advanced-panel\">
       <summary>Advanced portal-ext.properties</summary>
       <textarea id=\"props\" placeholder=\"feature.flag.LPD-12345=true&#10;feature.flag.LPD-12345.system=true\" rows=\"5\"></textarea>
     </details>

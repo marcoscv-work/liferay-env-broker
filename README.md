@@ -197,7 +197,7 @@ Dashboard behavior:
 - `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
 - The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
-- Environment variables and external DB variables use labeled JSON fields. External DB variables are shown only when `External DB` is selected.
+- Environment variables JSON is collapsed by default, and external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax.
 - Summary cards show available RAM and environments accessible to the current token.
 - Machine capacity is shown visually as used/total units, active environment count, and profile costs.
