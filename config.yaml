@@ -40,6 +40,10 @@ default_portal_properties:
   - 'false'
 - - company.security.update.password.required
   - 'false'
+- - default.admin.screen.name
+  - admin
+- - default.admin.email.address.prefix
+  - admin
 - - default.admin.password
   - test
 docker_network: bridge
