@@ -137,6 +137,7 @@ Required keys:
 | `cleanup_interval_seconds` | Cleanup loop interval. |
 | `ram_buffer_mb` | Minimum free RAM that must remain after creation. |
 | `capacity` | Optional global capacity-unit guardrail configuration. |
+| `image_cleanup` | Optional Docker image prune configuration. |
 | `max_environments_per_user` | Legacy/default active environment count quota per user. |
 | `max_environments_by_user` | Optional legacy user-specific active environment count quota map. |
 | `ready_timeout_seconds` | Max time spent waiting for readiness. |
@@ -153,6 +154,17 @@ capacity:
     default: 3
     admin: 12
 ```
+
+Example image cleanup configuration:
+
+```yaml
+image_cleanup:
+  enabled: true
+  interval_hours: 24
+  max_unused_age_hours: 168
+```
+
+Image cleanup runs `docker image prune -a --force --filter until=<hours>h`. Docker only removes images that are not referenced by containers.
 
 ## Registry
 

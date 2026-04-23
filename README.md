@@ -129,9 +129,15 @@ capacity:
   per_user_units:
     default: 3
     admin: 12
+image_cleanup:
+  enabled: true
+  interval_hours: 24
+  max_unused_age_hours: 168
 ```
 
 Capacity units are a simple scheduling guardrail. They avoid treating every environment as equal: `small` costs fewer units than `large`, but `max_active_environments` still prevents too many small environments from competing for CPU at the same time. With the example above, the host can run up to four `standard` environments, two `large` environments, or a bounded mix.
+
+Image cleanup prunes Docker images that are not used by any container and are older than the configured age. It does not remove images used by active or stopped containers.
 
 Restart the service:
 

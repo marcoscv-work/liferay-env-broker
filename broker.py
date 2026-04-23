@@ -161,6 +161,8 @@ class Broker:
         self.proxies: Dict[str, EnvironmentProxy] = {}
         self.cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True, name="cleanup-loop")
         self.cleanup_thread.start()
+        self.image_cleanup_thread = threading.Thread(target=self._image_cleanup_loop, daemon=True, name="image-cleanup-loop")
+        self.image_cleanup_thread.start()
         self._restore_proxies()
 
     def stop_all_proxies(self) -> None:
@@ -625,6 +627,25 @@ class Broker:
                 pass
             time.sleep(interval)
 
+    def _image_cleanup_loop(self) -> None:
+        cleanup_config = self.config.get("image_cleanup") or {}
+        if not cleanup_config.get("enabled", True):
+            return
+        interval = int(cleanup_config.get("interval_hours", 24)) * 3600
+        while True:
+            try:
+                self.cleanup_unused_images()
+            except Exception:
+                pass
+            time.sleep(interval)
+
+    def cleanup_unused_images(self) -> None:
+        cleanup_config = self.config.get("image_cleanup") or {}
+        if not cleanup_config.get("enabled", True):
+            return
+        max_age_hours = int(cleanup_config.get("max_unused_age_hours", 168))
+        self._docker(["image", "prune", "-a", "--force", "--filter", f"until={max_age_hours}h"], check=False)
+
     def cleanup_expired_and_idle(self) -> None:
         now = utcnow()
         idle_timeout = timedelta(minutes=int(self.config["idle_timeout_minutes"]))
@@ -841,9 +862,9 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin:16px 0; align-items:stretch; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin:16px 0; align-items:stretch; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
-    .connection-panel { grid-column:span 2; min-height:112px; min-width:0; }
+    .connection-panel { min-height:112px; min-width:0; }
     .metric-card { min-height:92px; }
     .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:space-between; font-size:18px; white-space:nowrap; }
     .metric-line span { font-weight:700; }
@@ -923,8 +944,15 @@ def ui() -> str:
       opacity: 1;
       transform: translate(0, -50%);
     }
+    @media (min-width: 1181px) {
+      .connection-panel { grid-column:span 2; }
+    }
     @media (max-width: 1180px) {
-      .connection-panel, .capacity-card { grid-column:1 / -1; }
+      .capacity-card { grid-column:1 / -1; }
+    }
+    @media (max-width: 980px) {
+      .connect-card { grid-template-columns: 1fr; align-items:stretch; }
+      .connect-card button { width: 100%; }
     }
     @media (max-width: 760px) {
       body { margin: 16px; }
