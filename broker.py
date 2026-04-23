@@ -824,6 +824,7 @@ def ui() -> str:
       --danger: #f87171;
       --ready: #2dd4bf;
       --starting: #fbbf24;
+      --ttl: #c084fc;
       --shadow: rgba(0,0,0,0.35);
       --button-glow: rgba(79,140,255,0.35);
       --input-bg: #0f172a;
@@ -843,6 +844,7 @@ def ui() -> str:
       --danger: #b91c1c;
       --ready: #0f766e;
       --starting: #b45309;
+      --ttl: #7c3aed;
       --shadow: rgba(0,0,0,0.08);
       --button-glow: rgba(15,98,254,0.25);
       --input-bg: #ffffff;
@@ -950,6 +952,27 @@ def ui() -> str:
     .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
     .profile-cost { padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-muted); font-size:12px; }
+    .field-user { display:flex; align-items:center; min-height:42px; padding:0 12px 0 0; color:var(--text); font-weight:700; white-space:nowrap; }
+    .field-user span { color:var(--text-muted); font-weight:400; margin-right:6px; }
+    .port-input { width:100px; flex:0 0 100px; }
+    .ttl-field { position:relative; display:flex; align-items:center; gap:6px; flex:0 0 240px; }
+    .ttl-field input { width:100%; min-width:0; }
+    .info-icon {
+      width:24px;
+      height:24px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:50%;
+      border:1px solid var(--border);
+      color:var(--text-muted);
+      background:var(--surface-muted);
+      font-size:13px;
+      font-weight:700;
+      flex:0 0 auto;
+      cursor:help;
+    }
+    .ttl-remaining { color:var(--ttl); font-weight:700; }
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
@@ -1061,6 +1084,8 @@ def ui() -> str:
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
       .create-toolbar { align-items:stretch; margin-bottom:0; }
+      .field-user { min-height:auto; padding:0; }
+      .port-input, .ttl-field { width:100%; flex:1 1 auto; }
       .image-picker { width:100%; min-width:0; }
       .image-links { position:static; }
       .image-links button, .image-links a { width:auto !important; }
@@ -1105,7 +1130,8 @@ def ui() -> str:
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
     <div class=\"toolbar create-toolbar\">
-      <input id=\"user\" placeholder=\"user\" />
+      <div class=\"field-user\"><span>User</span><strong id=\"userLabel\">-</strong></div>
+      <input id=\"user\" type=\"hidden\" />
       <div class=\"image-picker\">
         <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
         <datalist id=\"imageSuggestions\"></datalist>
@@ -1123,8 +1149,11 @@ def ui() -> str:
         <option value=\"none\" selected>No external DB</option>
         <option value=\"external\">External DB</option>
       </select>
-      <input id=\"port\" placeholder=\"optional port\" />
-      <input id=\"ttl\" placeholder=\"ttl hours, max 120, 0 = no TTL\" />
+      <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
+      <div class=\"ttl-field\">
+        <input id=\"ttl\" placeholder=\"ttl hours, max 120, 0 = no TTL\" inputmode=\"numeric\" />
+        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Time to live in hours. Empty uses the default. Maximum is 120 hours. Use 0 to disable maximum lifetime expiration; inactivity cleanup still applies.\">i</span>
+      </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
     <p class=\"small\">Extra variables use plain JSON.</p>
@@ -1178,8 +1207,7 @@ function saveInputs() {
 function setTokenUser(user) {
   if (!$("user") || !user) return;
   $("user").value = user;
-  $("user").readOnly = true;
-  $("user").title = "Filled from the Bearer token";
+  if ($("userLabel")) $("userLabel").textContent = user;
   saveInputs();
 }
 function brokerBaseUrl() {
@@ -1198,9 +1226,8 @@ function disconnect() {
   if ($("token")) $("token").value = "";
   if ($("user")) {
     $("user").value = "";
-    $("user").readOnly = false;
-    $("user").title = "";
   }
+  if ($("userLabel")) $("userLabel").textContent = "-";
   $("stats").innerHTML = "";
   $("rows").innerHTML = "";
   $("sessionCard").classList.remove("visible");
@@ -1292,7 +1319,7 @@ function renderStats(data) {
   const cards = [];
   if (data.capacity) cards.push(renderCapacityCard(data.capacity));
   cards.push(`<div class=\"card metric-card ram-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
-  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
+  cards.push(`<div class=\"card metric-card total-card\"><div class=\"metric-line\"><strong>Accessible Envs</strong><span>${data.total}</span></div><div class=\"small\">For this token</div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
   if ($("showHistory")) {
     $("showHistory").checked = localStorage.getItem(storageKeys.showHistory) === "true";
@@ -1342,7 +1369,7 @@ function renderRows(items) {
       <td>${item.host_port}</td>
       <td class=\"url\"><a href=\"${item.url}\" target=\"_blank\">${item.url}</a></td>
       <td>${item.last_access_at || "no access yet"}</td>
-      <td class=\"timestamp\">${item.created_at}<div class=\"small\">${formatTtl(item.expires_at)}</div></td>
+      <td class=\"timestamp\">${item.created_at}<div class=\"small ttl-remaining\">${formatTtl(item.expires_at)}</div></td>
       <td>
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
