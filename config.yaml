@@ -37,7 +37,6 @@ idle_timeout_minutes: 60
 ram_buffer_mb: 4096
 capacity:
   total_units: 12
-  max_active_environments: 4
   per_user_units:
     default: 3
     admin: 12

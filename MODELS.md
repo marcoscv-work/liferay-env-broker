@@ -149,7 +149,6 @@ Example capacity configuration:
 ```yaml
 capacity:
   total_units: 12
-  max_active_environments: 4
   per_user_units:
     default: 3
     admin: 12

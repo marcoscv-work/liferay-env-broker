@@ -289,7 +289,8 @@ class Broker:
         registry = self._read_registry()
         active_statuses = ["starting", "ready"]
         active_user_envs = [x for x in registry if x["user"] == req.user and x["status"] in active_statuses]
-        if len(active_user_envs) >= self._max_environments_for_user(req.user):
+        max_user_envs = self._max_environments_for_user(req.user)
+        if max_user_envs is not None and len(active_user_envs) >= max_user_envs:
             raise HTTPException(status_code=409, detail="Maximum active environments reached")
 
         profile = self.config["profiles"][req.profile]
@@ -308,10 +309,11 @@ class Broker:
             )
         return profile
 
-    def _max_environments_for_user(self, user: str) -> int:
+    def _max_environments_for_user(self, user: str) -> Optional[int]:
         fallback = self.config.get("max_environments_per_user")
         per_user_limits = self.config.get("max_environments_by_user") or {}
-        return int(per_user_limits.get(user, fallback or 999999))
+        limit = per_user_limits.get(user, fallback)
+        return int(limit) if limit is not None else None
 
     def _check_capacity_units(self, registry: List[Dict[str, Any]], user: str, requested_profile: str) -> None:
         capacity = self.config.get("capacity") or {}
@@ -319,12 +321,9 @@ class Broker:
             return
         total_limit = int(capacity.get("total_units", 0) or 0)
         per_user_units = capacity.get("per_user_units") or {}
-        max_active = int(capacity.get("max_active_environments", 0) or 0)
         user_limit = int(per_user_units.get(user, per_user_units.get("default", total_limit)) or 0)
         requested_units = self._profile_capacity_units(requested_profile)
         active = [x for x in registry if x.get("status") in ["starting", "ready"]]
-        if max_active and len(active) + 1 > max_active:
-            raise HTTPException(status_code=409, detail="Maximum platform active environments reached")
         total_used = sum(self._profile_capacity_units(x.get("profile", "")) for x in active)
         user_used = sum(self._profile_capacity_units(x.get("profile", "")) for x in active if x.get("user") == user)
         if total_limit and total_used + requested_units > total_limit:
@@ -679,23 +678,29 @@ class Broker:
             "by_status": dict(by_status),
             "by_user": dict(by_user),
             "memory": self._get_system_memory(),
-            "capacity": self._capacity_summary(),
+            "capacity": self._capacity_summary(token_user),
         }
 
-    def _capacity_summary(self) -> Dict[str, Any]:
+    def _capacity_summary(self, token_user: str) -> Dict[str, Any]:
         capacity = self.config.get("capacity") or {}
         profiles = self.config.get("profiles") or {}
         active = [x for x in self._read_registry() if x.get("status") in ["starting", "ready"]]
         total_units = int(capacity.get("total_units", 0) or 0)
-        max_active = int(capacity.get("max_active_environments", 0) or 0)
+        per_user_units = capacity.get("per_user_units") or {}
+        user_limit = int(per_user_units.get(token_user, per_user_units.get("default", total_units)) or 0)
         used_units = sum(self._profile_capacity_units(x.get("profile", "")) for x in active)
+        user_used_units = sum(self._profile_capacity_units(x.get("profile", "")) for x in active if x.get("user") == token_user)
+        user_active = len([x for x in active if x.get("user") == token_user])
         costs = {name: int(profile.get("capacity_units", 1)) for name, profile in profiles.items()}
         return {
             "total_units": total_units,
             "used_units": used_units,
             "available_units": max(total_units - used_units, 0) if total_units else None,
-            "max_active_environments": max_active,
             "active_environments": len(active),
+            "user_units": user_used_units,
+            "user_unit_limit": user_limit,
+            "user_active_environments": user_active,
+            "max_user_environments": self._max_environments_for_user(token_user),
             "profile_units": costs,
         }
 
@@ -945,10 +950,10 @@ def ui() -> str:
     .connect-card { display:grid; grid-template-columns: minmax(0, 1fr) auto; gap:10px; align-items:end; }
     .connect-card input { width: 100%; }
     .connect-fields { display:grid; gap:10px; min-width:0; }
-    .image-picker { display:grid; gap:6px; min-width:280px; align-self:flex-start; }
+    .image-picker { display:grid; gap:6px; min-width:280px; position:relative; }
     .image-picker input { width:100%; }
-    .image-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; line-height:1; }
-    .create-toolbar { align-items:flex-start; }
+    .image-links { position:absolute; top:calc(100% + 6px); left:0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; line-height:1; }
+    .create-toolbar { align-items:center; margin-bottom:28px; }
     .history-toggle { display:flex; align-items:center; gap:8px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
@@ -1052,8 +1057,9 @@ def ui() -> str:
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
-      .create-toolbar { align-items:stretch; }
+      .create-toolbar { align-items:stretch; margin-bottom:0; }
       .image-picker { width:100%; min-width:0; }
+      .image-links { position:static; }
       .image-links button, .image-links a { width:auto !important; }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
       .connect-card button { width: 100%; }
@@ -1087,6 +1093,8 @@ def ui() -> str:
     </div>
     <button class=\"secondary\" onclick=\"disconnect()\">Change token</button>
   </div>
+
+  <div id=\"message\" class=\"message small\" role=\"status\" aria-live=\"polite\"></div>
 
   <div id=\"authenticatedArea\" class=\"authenticated-area\">
   <div id=\"stats\" class=\"cards\"></div>
@@ -1124,7 +1132,6 @@ def ui() -> str:
     </div>
   </div>
 
-  <div id=\"message\" class=\"message small\" role=\"status\" aria-live=\"polite\"></div>
   <div class=\"table-wrap\">
     <table>
       <thead>
@@ -1267,7 +1274,6 @@ function formatApiError(rawText, status) {
   } catch (_) {}
   const friendly = {
     "Maximum active environments reached": "You already have the maximum number of active environments. Delete your current environment before creating a new one.",
-    "Maximum platform active environments reached": "The platform already has the maximum number of active environments. Delete an unused environment or wait for one to expire.",
     "Not enough platform capacity available": "There is not enough shared platform capacity for this profile right now. Try a smaller profile or delete another environment.",
     "User capacity limit reached": "This profile would exceed your capacity limit. Delete your current environment or choose a smaller profile.",
     "Missing Bearer token": "Enter your Bearer token before connecting.",
@@ -1301,7 +1307,8 @@ function renderCapacityCard(capacity) {
     <div class=\"card metric-card capacity-card\">
       <div class=\"metric-line\"><strong>Capacity</strong><span>${used}/${total || "-"}</span></div>
       <div class=\"capacity-bar\"><div class=\"capacity-fill\" style=\"width:${percent}%\"></div></div>
-      <div class=\"small\">${capacity.active_environments}/${capacity.max_active_environments || "-"} active environments</div>
+      <div class=\"small\">Platform: ${capacity.active_environments} active environments</div>
+      <div class=\"small\">You: ${capacity.user_units}/${capacity.user_unit_limit || "-"} units, ${capacity.user_active_environments}/${capacity.max_user_environments || "-"} environments</div>
       <div class=\"profile-costs\">${costs}</div>
     </div>
   `;

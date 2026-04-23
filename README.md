@@ -125,7 +125,6 @@ default_ttl_hours: 8
 idle_timeout_minutes: 60
 capacity:
   total_units: 12
-  max_active_environments: 4
   per_user_units:
     default: 3
     admin: 12
@@ -135,7 +134,7 @@ image_cleanup:
   max_unused_age_hours: 168
 ```
 
-Capacity units are a simple scheduling guardrail. They avoid treating every environment as equal: `small` costs fewer units than `large`, but `max_active_environments` still prevents too many small environments from competing for CPU at the same time. With the example above, the host can run up to four `standard` environments, two `large` environments, or a bounded mix.
+Capacity units are a simple scheduling guardrail. They avoid treating every environment as equal: `small` costs fewer units than `large`. `total_units` protects the shared machine capacity, while `per_user_units` limits how much capacity each user can consume independently. With the example above, an admin can consume the full 12-unit pool, while regular users can consume up to 3 units each as long as shared capacity remains available.
 
 Image cleanup prunes Docker images that are not used by any container and are older than the configured age. It does not remove images used by active or stopped containers.
 
