@@ -868,6 +868,20 @@ def ui() -> str:
       color: var(--text);
     }
     input::placeholder, textarea::placeholder { color: var(--text-muted); }
+    select {
+      appearance:none;
+      -webkit-appearance:none;
+      padding-right:36px;
+      background-color:var(--input-bg);
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--text) 50%),
+        linear-gradient(135deg, var(--text) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%;
+      background-size:6px 6px, 6px 6px;
+      background-repeat:no-repeat;
+    }
     button {
       position: relative;
       overflow: hidden;
@@ -955,7 +969,7 @@ def ui() -> str:
     .field-user { display:flex; align-items:center; min-height:42px; padding:0 12px 0 0; color:var(--text); font-weight:700; white-space:nowrap; }
     .field-user span { color:var(--text-muted); font-weight:400; margin-right:6px; }
     .port-input { width:100px; flex:0 0 100px; }
-    .ttl-field { position:relative; display:flex; align-items:center; gap:6px; flex:0 0 240px; }
+    .ttl-field { position:relative; display:flex; align-items:center; gap:6px; flex:0 0 240px; margin-right:10px; }
     .ttl-field input { width:100%; min-width:0; }
     .info-icon {
       width:24px;
@@ -1026,7 +1040,7 @@ def ui() -> str:
       white-space: normal;
       opacity: 0;
       transform: translate(4px, -50%);
-      transition: opacity 140ms ease 2s, transform 140ms ease 2s;
+      transition: opacity 140ms ease 500ms, transform 140ms ease 500ms;
       pointer-events: none;
       z-index: 20;
     }
@@ -1042,7 +1056,7 @@ def ui() -> str:
       border-left: 7px solid var(--surface);
       opacity: 0;
       transform: translate(4px, -50%);
-      transition: opacity 140ms ease 2s, transform 140ms ease 2s;
+      transition: opacity 140ms ease 500ms, transform 140ms ease 500ms;
       pointer-events: none;
       z-index: 21;
     }
@@ -1114,7 +1128,7 @@ def ui() -> str:
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
       .create-toolbar { align-items:stretch; margin-bottom:0; }
       .field-user { min-height:auto; padding:0; }
-      .port-input, .ttl-field { width:100%; flex:1 1 auto; }
+      .port-input, .ttl-field { width:100%; flex:1 1 auto; margin-right:0; }
       .advanced-grid { grid-template-columns:1fr; }
       .image-picker { width:100%; min-width:0; }
       .image-links { position:static; }
