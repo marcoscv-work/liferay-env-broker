@@ -841,12 +841,13 @@ def ui() -> str:
       line-height: 1;
       z-index: 10;
     }
-    .cards { display:grid; grid-template-columns:minmax(360px,620px) repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:16px 0; align-items:stretch; }
+    .cards { display:grid; grid-template-columns:minmax(420px,1.4fr) minmax(360px,1fr) minmax(240px,0.7fr) minmax(240px,0.7fr); gap:12px; margin:16px 0; align-items:stretch; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow: 0 2px 10px var(--shadow); }
+    .connection-panel { min-height:112px; }
     .metric-card { min-height:92px; }
-    .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:flex-start; font-size:18px; }
+    .metric-line { display:flex; gap:12px; align-items:baseline; justify-content:space-between; font-size:18px; white-space:nowrap; }
     .metric-line span { font-weight:700; }
-    .capacity-card { min-width:280px; }
+    .capacity-card { min-width:0; }
     .capacity-bar { height:10px; border-radius:999px; background:var(--surface-muted); overflow:hidden; margin:12px 0 8px; border:1px solid var(--border); }
     .capacity-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--ready)); width:0%; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
@@ -927,6 +928,7 @@ def ui() -> str:
       .theme-toggle { top: 12px; right: 12px; }
       .top { padding-right: 48px; }
       .cards { grid-template-columns: 1fr; }
+      .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
@@ -948,7 +950,7 @@ def ui() -> str:
   </div>
 
   <div class=\"cards\">
-    <div class=\"card\">
+    <div class=\"card connection-panel\">
       <div class=\"connect-card\">
         <div class=\"connect-fields\">
           <input id=\"baseUrl\" placeholder=\"Base URL\" value=\"\" />
@@ -1103,8 +1105,7 @@ function formatApiError(rawText, status) {
 function renderStats(data) {
   const cards = [];
   if (data.capacity) cards.push(renderCapacityCard(data.capacity));
-  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Available RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Total ${data.memory.total_mb} MB</div></div>`);
-  for (const [k,v] of Object.entries(data.by_status || {})) cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>${k}</strong><span>${v}</span></div></div>`);
+  cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>RAM</strong><span>${data.memory.available_mb} MB</span></div><div class=\"small\">Available of ${data.memory.total_mb} MB</div></div>`);
   cards.push(`<div class=\"card metric-card\"><div class=\"metric-line\"><strong>Total</strong><span>${data.total}</span></div><label class=\"small history-toggle\"><input id=\"showHistory\" type=\"checkbox\" /> Show history</label></div>`);
   $("stats").innerHTML = cards.join("");
   if ($("showHistory")) {
