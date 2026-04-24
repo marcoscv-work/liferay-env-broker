@@ -62,9 +62,9 @@ capacity:
   total_units: 12
   per_user_units:
     default: 1
-    developer: 3
-    product: 2
-    design: 2
+    developer: 6
+    product: 3
+    design: 3
     admin: 12
 image_cleanup:
   enabled: true

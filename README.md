@@ -128,9 +128,9 @@ capacity:
   total_units: 12
   per_user_units:
     default: 1
-    developer: 3
-    product: 2
-    design: 2
+    developer: 6
+    product: 3
+    design: 3
     admin: 12
 image_cleanup:
   enabled: true
@@ -138,7 +138,7 @@ image_cleanup:
   max_unused_age_hours: 168
 ```
 
-Capacity units are a simple scheduling guardrail. In this default model, `small` and `standard` each cost 1 unit, `large` costs 2 units, and the shared machine has 12 units. That means the platform can run up to 12 standard environments, or a bounded mix of standard and large environments. `per_user_units` limits how much capacity each user can consume independently; regular users get 1 unit by default, while admin can consume the full shared pool.
+Capacity units are a simple scheduling guardrail. In this default model, `small` and `standard` each cost 1 unit, `large` costs 2 units, and the shared machine has 12 units. That means the platform can run up to 12 standard environments, or a bounded mix of standard and large environments. `per_user_units` limits how much capacity each user can consume independently; regular users get 1 unit by default, design and product can consume 3 units each, developer can consume 6 units, and admin can consume the full shared pool.
 
 Leave `ttl_hours` empty for the default ephemeral behavior: the environment uses `default_ttl_hours` and can also be stopped after `idle_timeout_minutes` without access. Set `ttl_hours` to a value from `1` to `max_ttl_hours` for a fixed maximum lifetime without inactivity cleanup. Set `ttl_hours` to `0` to keep the environment until it is deleted manually.
 
@@ -205,10 +205,12 @@ Dashboard behavior:
 - `Show history` lives in the `Visible Environments` card and controls whether deleted, failed, stopped, and expired records are shown.
 - Newer environments are shown first.
 - On small screens, the environment table has its own horizontal scroll area.
+- `Logs` opens a lightweight modal with the latest Docker logs for that container and a manual refresh button.
 
 Environment actions:
 
 - `Touch` updates `last_access_at` manually. Use it to keep a default ephemeral environment from being stopped by the inactivity timeout when it is still needed.
+- `Logs` opens the latest Docker logs for one environment on demand.
 - `Delete` stops and removes the Docker container, shuts down its proxy, and removes the environment from the visible registry list.
 - Action tooltips appear after a short hover or keyboard focus delay.
 

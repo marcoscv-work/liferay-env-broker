@@ -152,9 +152,9 @@ capacity:
   total_units: 12
   per_user_units:
     default: 1
-    developer: 3
-    product: 2
-    design: 2
+    developer: 6
+    product: 3
+    design: 3
     admin: 12
 ```
 
@@ -267,6 +267,7 @@ Dashboard behavior:
 - The URL column has a minimum width to keep environment links readable.
 - Created timestamps are rendered in smaller text and include remaining TTL.
 - Action buttons include delayed hover/focus tooltips.
+- `Logs` opens a modal that reads the latest Docker logs on demand and refreshes manually.
 
 Dashboard actions:
 
@@ -275,6 +276,7 @@ Dashboard actions:
 | `Connect` | `GET /v1/me`, `GET /v1/dashboard`, and `GET /v1/environments` | Loads token identity, summary, and environment table with the configured token. |
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
 | `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup for default ephemeral environments. |
+| `Logs` | `GET /v1/environments/{environment_id}/logs?tail=300` | Reads the latest Docker logs for that environment on demand. |
 | `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties, and removes the registry record. |
 
 ## Auth Model

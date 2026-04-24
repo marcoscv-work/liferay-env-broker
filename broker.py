@@ -256,6 +256,20 @@ class Broker:
         except subprocess.CalledProcessError:
             return False
 
+    def container_logs(self, env_id: str, token_user: str, tail: int = 300) -> Dict[str, Any]:
+        record = self.get_environment(env_id, token_user)
+        container_name = record["container_name"]
+        safe_tail = max(10, min(int(tail), 1000))
+        result = self._docker(["logs", "--tail", str(safe_tail), container_name], check=False)
+        output = ((result.stdout or "") + (result.stderr or "")).strip()
+        return {
+            "id": record["id"],
+            "container_name": container_name,
+            "status": record["status"],
+            "tail": safe_tail,
+            "logs": output,
+        }
+
     def _get_system_memory(self) -> Dict[str, int]:
         info: Dict[str, int] = {}
         with open("/proc/meminfo", "r", encoding="utf-8") as f:
@@ -769,6 +783,12 @@ def get_environment(environment_id: str, authorization: Optional[str] = Header(d
     return broker.get_environment(environment_id, token_user)
 
 
+@app.get("/v1/environments/{environment_id}/logs")
+def environment_logs(environment_id: str, tail: int = 300, authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    token_user = broker.authenticate(authorization)
+    return broker.container_logs(environment_id, token_user, tail=tail)
+
+
 @app.post("/v1/environments")
 def create_environment(req: CreateEnvironmentRequest, authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     token_user = broker.authenticate(authorization)
@@ -1051,6 +1071,50 @@ def ui() -> str:
     .url { word-break:break-all; }
     .table-wrap { width: 100%; }
     .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 12, 24, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 100;
+    }
+    .modal-backdrop.visible { display: flex; }
+    .modal {
+      width: min(960px, 100%);
+      max-height: min(80vh, 760px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 20px 60px var(--shadow);
+    }
+    .modal-header, .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .modal-title { margin: 0; }
+    .log-output {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 240px;
+    }
     .has-tooltip { overflow: visible; }
     .has-tooltip::before {
       content: attr(data-tooltip);
@@ -1262,6 +1326,23 @@ def ui() -> str:
   </div>
   </div>
 
+  <div id=\"logsModal\" class=\"modal-backdrop\" onclick=\"closeLogs(event)\">
+    <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"logsTitle\">
+      <div class=\"modal-header\">
+        <div>
+          <h3 id=\"logsTitle\" class=\"modal-title\">Container logs</h3>
+          <div id=\"logsMeta\" class=\"small\"></div>
+        </div>
+        <button class=\"secondary\" type=\"button\" onclick=\"closeLogs()\">Close</button>
+      </div>
+      <pre id=\"logsOutput\" class=\"log-output\">Open a container log to inspect it here.</pre>
+      <div class=\"modal-actions\">
+        <div class=\"small\">Showing the latest 300 lines.</div>
+        <button id=\"logsRefreshButton\" class=\"secondary\" type=\"button\" onclick=\"refreshLogs()\">Refresh</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const storageKeys = {
@@ -1271,6 +1352,7 @@ const storageKeys = {
   theme: "liferayBroker.theme"
 };
 let imageSuggestionsLoaded = false;
+let activeLogsEnvironmentId = null;
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   const toggle = $("themeToggle");
@@ -1482,6 +1564,11 @@ function formatAccess(value, reason) {
   const label = reason === "manual_touch" ? "manual touch" : reason === "http_request" ? "live traffic" : "access";
   return `${formatDateTime(value)}<div class=\"small\">${label}</div>`;
 }
+function scrollLogsToBottom() {
+  const output = $("logsOutput");
+  if (!output) return;
+  output.scrollTop = output.scrollHeight;
+}
 function renderRows(items) {
   const visibleItems = $("showHistory") && $("showHistory").checked
     ? items
@@ -1501,6 +1588,7 @@ function renderRows(items) {
       <td>
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
+          <button class=\"secondary has-tooltip\" data-tooltip=\"Shows the latest logs from this Liferay container.\" onclick=\"openLogs('${item.id}')\">Logs</button>
           <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}')\">Delete</button>
         </div>
       </td>
@@ -1571,6 +1659,47 @@ async function touchEnv(id) {
   } catch (e) {
     setMessage(e.message, true);
   }
+}
+async function loadLogs(id) {
+  const data = await api(`/v1/environments/${id}/logs?tail=300`);
+  activeLogsEnvironmentId = id;
+  $("logsTitle").textContent = `Container logs`;
+  $("logsMeta").textContent = `${data.container_name} · ${data.status}`;
+  $("logsOutput").textContent = data.logs || "No logs available yet.";
+  $("logsModal").classList.add("visible");
+  scrollLogsToBottom();
+}
+async function openLogs(id) {
+  try {
+    $("logsOutput").textContent = "Loading logs...";
+    $("logsMeta").textContent = "";
+    $("logsModal").classList.add("visible");
+    await loadLogs(id);
+  } catch (e) {
+    $("logsOutput").textContent = e.message;
+    $("logsMeta").textContent = "";
+    $("logsModal").classList.add("visible");
+  }
+}
+async function refreshLogs() {
+  if (!activeLogsEnvironmentId) return;
+  try {
+    const button = $("logsRefreshButton");
+    button.disabled = true;
+    button.textContent = "Refreshing...";
+    await loadLogs(activeLogsEnvironmentId);
+  } catch (e) {
+    $("logsOutput").textContent = e.message;
+  } finally {
+    const button = $("logsRefreshButton");
+    button.disabled = false;
+    button.textContent = "Refresh";
+  }
+}
+function closeLogs(event) {
+  if (event && event.target && event.target !== $("logsModal")) return;
+  $("logsModal").classList.remove("visible");
+  activeLogsEnvironmentId = null;
 }
 setInterval(() => { if ($("token").value) loadAll(); }, 5000);
 if ($("token").value) loadAll();
