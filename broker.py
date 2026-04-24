@@ -30,6 +30,7 @@ DEFAULT_PORTAL_PROPERTIES = [
     ("passwords.default.policy.change.required", "false"),
     ("passwords.setup.required", "false"),
     ("users.reminder.queries.enabled", "false"),
+    ("company.security.strangers.verify", "false"),
     ("company.security.update.password.required", "false"),
     ("default.admin.screen.name", "admin"),
     ("default.admin.email.address.prefix", "admin"),

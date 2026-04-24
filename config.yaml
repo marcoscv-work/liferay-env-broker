@@ -40,6 +40,8 @@ default_portal_properties:
   - 'false'
 - - users.reminder.queries.enabled
   - 'false'
+- - company.security.strangers.verify
+  - 'false'
 - - company.security.update.password.required
   - 'false'
 - - default.admin.screen.name
