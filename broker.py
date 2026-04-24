@@ -28,6 +28,7 @@ DEFAULT_PORTAL_PROPERTIES = [
     ("terms.of.use.required", "false"),
     ("auth.token.check.enabled", "false"),
     ("passwords.default.policy.change.required", "false"),
+    ("passwords.setup.required", "false"),
     ("users.reminder.queries.enabled", "false"),
     ("company.security.update.password.required", "false"),
     ("default.admin.screen.name", "admin"),

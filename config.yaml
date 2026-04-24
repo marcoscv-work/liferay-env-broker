@@ -36,6 +36,8 @@ default_portal_properties:
   - 'false'
 - - passwords.default.policy.change.required
   - 'false'
+- - passwords.setup.required
+  - 'false'
 - - users.reminder.queries.enabled
   - 'false'
 - - company.security.update.password.required
