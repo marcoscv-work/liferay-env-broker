@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import threading
@@ -24,17 +25,25 @@ from pydantic import BaseModel, Field
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.environ.get("BROKER_CONFIG", BASE_DIR / "config.yaml"))
 DEFAULT_PORTAL_PROPERTIES = [
+    ("virtual.hosts.valid.hosts", "localhost,127.0.0.1,[::1],[0:0:0:0:0:0:0:1],192.168.0.*"),
     ("setup.wizard.enabled", "false"),
     ("terms.of.use.required", "false"),
     ("auth.token.check.enabled", "false"),
     ("passwords.default.policy.change.required", "false"),
-    ("passwords.setup.required", "false"),
-    ("users.reminder.queries.enabled", "false"),
-    ("company.security.strangers.verify", "false"),
-    ("company.security.update.password.required", "false"),
-    ("default.admin.screen.name", "admin"),
-    ("default.admin.email.address.prefix", "admin"),
     ("default.admin.password", "test"),
+    ("feature.flag.ui.visible[dev]", "true"),
+    ("feature.flag.ui.visible[system]", "true"),
+    ("feature.flag.COMMERCE-8715", "true"),
+    ("feature.flag.LPS-194763", "true"),
+    ("live.users.enabled", "true"),
+    ("feature.flag.LPD-17564", "true"),
+    ("feature.flag.LPD-11232", "true"),
+    ("feature.flag.LPS-179669", "true"),
+    ("feature.flag.LPD-34594", "true"),
+    ("feature.flag.LPD-11235", "true"),
+    ("auth.login.disabled", "false"),
+    ("basic.auth.header.required.urls", "/api/*,/o/*,/c/*,/documents/*"),
+    ("auth.verifier.BasicAuthHeaderAuthVerifier.urls.includes", "/api/*,/o/*,/xmlrpc/*"),
 ]
 
 
@@ -169,6 +178,8 @@ class Broker:
         self.registry_path = BASE_DIR / self.config["registry_file"]
         self.properties_dir = BASE_DIR / self.config["properties_dir"]
         self.properties_dir.mkdir(parents=True, exist_ok=True)
+        self.data_dir = BASE_DIR / self.config.get("data_dir", "data")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.registry_lock = threading.Lock()
         self.port_lock = threading.Lock()
         self.proxies: Dict[str, EnvironmentProxy] = {}
@@ -377,13 +388,16 @@ class Broker:
         registry = self._read_registry()
         active_statuses = {"starting", "ready"}
         used_ports = {int(x["host_port"]) for x in registry if x["status"] in active_statuses}
+        reserved_ports = {int(self.config["listen_port"])}
 
         def candidate_ok(port: int) -> bool:
             return start <= port <= end and port not in used_ports and self._is_port_free(port)
 
         with self.port_lock:
             if requested_port is not None:
-                if not candidate_ok(requested_port):
+                if requested_port < 1024 or requested_port > 65535:
+                    raise HTTPException(status_code=409, detail=f"Requested port is outside the allowed range: {requested_port}")
+                if requested_port in reserved_ports or requested_port in used_ports or not self._is_port_free(requested_port):
                     raise HTTPException(status_code=409, detail=f"Requested port is not available: {requested_port}")
                 return requested_port
             for port in range(start, end + 1):
@@ -425,6 +439,9 @@ class Broker:
         path.write_text(self._compose_portal_properties(content), encoding="utf-8")
         return path
 
+    def _data_path(self, env_id: str) -> Path:
+        return self.data_dir / env_id
+
     def _update_record(self, updated: Dict[str, Any]) -> None:
         with self.registry_lock:
             registry = self._read_registry()
@@ -463,6 +480,12 @@ class Broker:
         env_id = uuid.uuid4().hex[:12]
         container_name = self._make_name(req)
         properties_path = self._write_properties(env_id, req.portal_properties)
+        data_path = self._data_path(env_id)
+        data_path.mkdir(parents=True, exist_ok=True)
+        hypersonic_path = data_path / "hypersonic"
+        hypersonic_path.mkdir(parents=True, exist_ok=True)
+        os.chmod(data_path, 0o777)
+        os.chmod(hypersonic_path, 0o777)
 
         idle_timeout_enabled = req.ttl_hours is None
         ttl_hours = int(self.config["default_ttl_hours"]) if req.ttl_hours is None else int(req.ttl_hours)
@@ -488,6 +511,7 @@ class Broker:
             "idle_timeout_enabled": idle_timeout_enabled,
             "url": self.config["base_url_template"].format(port=host_port, container_name=container_name, env_id=env_id),
             "properties_file": str(properties_path) if properties_path else None,
+            "data_path": str(data_path),
             "env": {},
             "db_mode": req.db_mode,
             "db_env": req.db_env if req.db_mode == "external" else {},
@@ -515,6 +539,7 @@ class Broker:
 
         if properties_path:
             cmd += ["-v", f"{properties_path}:/opt/liferay/portal-ext.properties:ro"]
+        cmd += ["-v", f"{data_path}:/opt/liferay/data"]
 
         extra_args = profile.get("docker_run_args", []) or []
         cmd.extend(extra_args)
@@ -651,6 +676,11 @@ class Broker:
         if record.get("properties_file"):
             try:
                 Path(record["properties_file"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        if record.get("data_path"):
+            try:
+                shutil.rmtree(record["data_path"], ignore_errors=True)
             except Exception:
                 pass
         record["status"] = status
@@ -1283,6 +1313,7 @@ def ui() -> str:
         <option value=\"small\">small · 4 GB</option>
         <option value=\"standard\" selected>standard · 6 GB</option>
         <option value=\"large\">large · 8 GB</option>
+        <option value=\"super_large\">super large · 10 GB</option>
       </select>
       <select id=\"db_mode\" onchange=\"syncDbFields()\">
         <option value=\"none\" selected>No external DB</option>

@@ -21,13 +21,21 @@ profiles:
     cpus: 3
     capacity_units: 2
     docker_run_args: []
+  super_large:
+    memory_mb: 10240
+    cpus: 4
+    capacity_units: 3
+    docker_run_args: []
 port_range:
   start: 18080
   end: 18150
 base_url_template: http://BROKER_HOST:{port}
 registry_file: registry.json
 properties_dir: portal_properties
+data_dir: data
 default_portal_properties:
+- - virtual.hosts.valid.hosts
+  - localhost,127.0.0.1,[::1],[0:0:0:0:0:0:0:1],192.168.0.*
 - - setup.wizard.enabled
   - 'false'
 - - terms.of.use.required
@@ -36,20 +44,34 @@ default_portal_properties:
   - 'false'
 - - passwords.default.policy.change.required
   - 'false'
-- - passwords.setup.required
-  - 'false'
-- - users.reminder.queries.enabled
-  - 'false'
-- - company.security.strangers.verify
-  - 'false'
-- - company.security.update.password.required
-  - 'false'
-- - default.admin.screen.name
-  - admin
-- - default.admin.email.address.prefix
-  - admin
 - - default.admin.password
   - test
+- - feature.flag.ui.visible[dev]
+  - 'true'
+- - feature.flag.ui.visible[system]
+  - 'true'
+- - feature.flag.COMMERCE-8715
+  - 'true'
+- - feature.flag.LPS-194763
+  - 'true'
+- - live.users.enabled
+  - 'true'
+- - feature.flag.LPD-17564
+  - 'true'
+- - feature.flag.LPD-11232
+  - 'true'
+- - feature.flag.LPS-179669
+  - 'true'
+- - feature.flag.LPD-34594
+  - 'true'
+- - feature.flag.LPD-11235
+  - 'true'
+- - auth.login.disabled
+  - 'false'
+- - basic.auth.header.required.urls
+  - /api/*,/o/*,/c/*,/documents/*
+- - auth.verifier.BasicAuthHeaderAuthVerifier.urls.includes
+  - /api/*,/o/*,/xmlrpc/*
 docker_network: bridge
 default_ttl_hours: 8
 max_ttl_hours: 120
