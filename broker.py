@@ -1056,16 +1056,26 @@ def ui() -> str:
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
     .profile-cost { padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-muted); font-size:12px; }
     .create-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
-    .create-field label { font-size:12px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
-    .label-inline { display:inline-flex; align-items:center; gap:6px; }
+    .create-field label {
+      display:inline-flex;
+      align-items:center;
+      min-height:18px;
+      font-size:12px;
+      color:var(--text-muted);
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:0.04em;
+      line-height:1;
+    }
+    .field-label-row { display:flex; align-items:center; gap:6px; min-height:18px; }
     .field-user { display:flex; align-items:center; min-height:42px; color:var(--text); font-weight:700; white-space:nowrap; }
     .field-user span { color:var(--text-muted); font-weight:400; margin-right:6px; }
     .port-input { width:100%; min-width:0; }
     .ttl-field { position:relative; display:flex; align-items:center; gap:6px; width:100%; }
     .ttl-field input { width:100%; min-width:0; }
     .info-icon {
-      width:24px;
-      height:24px;
+      width:18px;
+      height:18px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -1073,7 +1083,7 @@ def ui() -> str:
       border:1px solid var(--border);
       color:var(--text-muted);
       background:var(--surface-muted);
-      font-size:13px;
+      font-size:11px;
       font-weight:700;
       text-transform:none;
       flex:0 0 auto;
@@ -1353,7 +1363,10 @@ def ui() -> str:
         <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
       </div>
       <div class=\"create-field\">
-        <label for=\"ttl\" class=\"label-inline\">Time to live <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span></label>
+        <div class=\"field-label-row\">
+          <label for=\"ttl\">Time to live</label>
+          <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span>
+        </div>
         <div class=\"ttl-field\">
           <input id=\"ttl\" placeholder=\"blank = idle cleanup, 0 = manual delete\" inputmode=\"numeric\" />
         </div>
