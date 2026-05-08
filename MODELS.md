@@ -30,6 +30,7 @@ Main persisted fields:
 | `idle_timeout_enabled` | boolean | Whether inactivity cleanup applies to this environment. |
 | `target_ip` | string | Docker-internal container IP used by the proxy. |
 | `properties_file` | string/null | Generated `portal-ext.properties` path with broker defaults plus any user-provided overrides. |
+| `data_path` | string/null | Per-environment host directory mounted into `/opt/liferay/data`. |
 | `env` | object | Extra environment variables passed to the container. |
 | `db_mode` | string | `none` or `external`. |
 | `db_env` | object | External database variables when `db_mode=external`. |
@@ -89,7 +90,7 @@ Current validations:
 - The user cannot exceed the active environment count quota for active `starting` or `ready` environments.
 - The request cannot exceed global or per-user capacity units.
 - Available RAM must remain above `ram_buffer_mb` after reserving `profile.memory_mb`.
-- A requested port must be inside `port_range`, unassigned, and bindable on `proxy_bind_host`.
+- A requested port must be unassigned, bindable on `proxy_bind_host`, not equal to the broker port, and inside `1024..65535`. If omitted, the broker assigns one from `port_range`.
 
 ## Profile
 
@@ -108,7 +109,7 @@ profiles:
 | --- | --- | --- |
 | `memory_mb` | integer | Memory limit passed to Docker as `--memory`. |
 | `cpus` | number | CPU limit passed to Docker as `--cpus`. |
-| `capacity_units` | integer | Scheduling weight used by broker capacity checks. By default, `small` and `standard` cost 1 unit and `large` costs 2 units. |
+| `capacity_units` | integer | Scheduling weight used by broker capacity checks. By default, `small` and `standard` cost 1 unit, `large` costs 2 units, and `super_large` costs 3 units. |
 | `docker_run_args` | array | Extra args inserted before the image name. |
 
 Capacity units are intentionally coarser than RAM. They model the combined cost of memory and CPU so several small environments do not consume all processor headroom just because they fit in RAM.
@@ -132,6 +133,7 @@ Required keys:
 | `base_url_template` | Returned URL template. It may use `{port}`, `{container_name}`, and `{env_id}`. |
 | `registry_file` | Local JSON registry path. |
 | `properties_dir` | Directory for generated `portal-ext.properties` files. |
+| `data_dir` | Directory for per-environment `/opt/liferay/data` mounts. |
 | `docker_network` | Docker network passed to `docker run --network`. |
 | `default_ttl_hours` | Default TTL when the user does not request one. |
 | `max_ttl_hours` | Upper bound for requested TTL. Use `ttl_hours=0` to keep one environment until manual delete. |
@@ -257,8 +259,9 @@ Dashboard behavior:
 - The login controls hide after a successful connection.
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - The create form shows the connected user as text instead of an editable field.
+- The create form uses compact labels for the primary controls and labels the TTL field as `Time to live`.
 - Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
-- `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON.
+- `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON. Its placeholder is derived from the current broker default properties.
 - Every environment always injects broker defaults to skip setup, reminder questions, and password-change prompts; custom lines are appended after those defaults.
 - Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.
@@ -277,7 +280,7 @@ Dashboard actions:
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
 | `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup for default ephemeral environments. |
 | `Logs` | `GET /v1/environments/{environment_id}/logs?tail=300` | Reads the latest Docker logs for that environment on demand. |
-| `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties, and removes the registry record. |
+| `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties and the per-environment data directory, and removes the registry record. |
 
 ## Auth Model
 

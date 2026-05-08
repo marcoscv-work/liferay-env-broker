@@ -118,6 +118,10 @@ profiles:
     memory_mb: 8192
     cpus: 3
     capacity_units: 2
+  super_large:
+    memory_mb: 10240
+    cpus: 4
+    capacity_units: 3
 port_range:
   start: 18080
   end: 18150
@@ -197,9 +201,10 @@ Dashboard behavior:
 - `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
 - The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
+- The create row uses compact labels for `User`, `Image`, `Profile`, `Database`, `Port`, and `Time to live`.
 - Environment variables JSON is collapsed by default, and external DB variables are shown only when `External DB` is selected.
-- `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax.
-- Every environment always includes the broker defaults for setup wizard, terms of use, auth token check, password-change enforcement, and the initial admin password. Any custom `portal-ext.properties` lines are appended after those defaults.
+- `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax. Its placeholder shows the current broker defaults so users can see what is already injected.
+- Every environment always includes the broker defaults shown in that placeholder. Any custom `portal-ext.properties` lines are appended after those defaults.
 - Summary cards show available RAM and environments accessible to the current token.
 - Machine capacity is shown visually as used/total units, active environment count, and profile costs.
 - `Show history` lives in the `Visible Environments` card and controls whether deleted, failed, stopped, and expired records are shown.
@@ -278,6 +283,8 @@ python3 client.py create \
   --port 18090
 ```
 
+If `--port` is omitted, the broker assigns a free port from `port_range`. If `--port` is provided, the broker accepts any free port from `1024` to `65535` except the broker port itself.
+
 Create with `portal-ext.properties`:
 
 ```bash
@@ -290,13 +297,25 @@ python3 client.py create \
 Broker-managed default `portal-ext.properties` values:
 
 ```properties
+virtual.hosts.valid.hosts=localhost,127.0.0.1,[::1],[0:0:0:0:0:0:0:1],192.168.0.*
 setup.wizard.enabled=false
 terms.of.use.required=false
 auth.token.check.enabled=false
 passwords.default.policy.change.required=false
-users.reminder.queries.enabled=false
-company.security.update.password.required=false
 default.admin.password=test
+feature.flag.ui.visible[dev]=true
+feature.flag.ui.visible[system]=true
+feature.flag.COMMERCE-8715=true
+feature.flag.LPS-194763=true
+live.users.enabled=true
+feature.flag.LPD-17564=true
+feature.flag.LPD-11232=true
+feature.flag.LPS-179669=true
+feature.flag.LPD-34594=true
+feature.flag.LPD-11235=true
+auth.login.disabled=false
+basic.auth.header.required.urls=/api/*,/o/*,/c/*,/documents/*
+auth.verifier.BasicAuthHeaderAuthVerifier.urls.includes=/api/*,/o/*,/xmlrpc/*
 ```
 
 Custom properties provided through the CLI or web UI are appended after these defaults.
@@ -350,6 +369,7 @@ The broker writes runtime state locally:
 
 - `registry.json`: environment inventory and metadata.
 - `portal_properties/`: generated `portal-ext.properties` files when provided.
+- `data/`: per-environment persistent runtime data directories mounted to `/opt/liferay/data` and removed on environment deletion.
 
 These paths are ignored by Git because they can contain user names, internal URLs, environment variables, database settings, or other deployment-specific data.
 

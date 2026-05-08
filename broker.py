@@ -1055,10 +1055,13 @@ def ui() -> str:
     .capacity-label { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
     .profile-costs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
     .profile-cost { padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-muted); font-size:12px; }
-    .field-user { display:flex; align-items:center; min-height:42px; padding:0 12px 0 0; color:var(--text); font-weight:700; white-space:nowrap; }
+    .create-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .create-field label { font-size:12px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+    .label-inline { display:inline-flex; align-items:center; gap:6px; }
+    .field-user { display:flex; align-items:center; min-height:42px; color:var(--text); font-weight:700; white-space:nowrap; }
     .field-user span { color:var(--text-muted); font-weight:400; margin-right:6px; }
-    .port-input { width:100px; flex:0 0 100px; }
-    .ttl-field { position:relative; display:flex; align-items:center; gap:6px; flex:0 0 240px; margin-right:10px; }
+    .port-input { width:100%; min-width:0; }
+    .ttl-field { position:relative; display:flex; align-items:center; gap:6px; width:100%; }
     .ttl-field input { width:100%; min-width:0; }
     .info-icon {
       width:24px;
@@ -1072,6 +1075,7 @@ def ui() -> str:
       background:var(--surface-muted);
       font-size:13px;
       font-weight:700;
+      text-transform:none;
       flex:0 0 auto;
       cursor:help;
     }
@@ -1090,7 +1094,14 @@ def ui() -> str:
     .image-picker { display:grid; gap:6px; min-width:280px; position:relative; }
     .image-picker input { width:100%; }
     .image-links { position:absolute; top:calc(100% + 6px); left:0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; line-height:1; }
-    .create-toolbar { align-items:center; margin-bottom:28px; }
+    .create-toolbar {
+      display:grid;
+      grid-template-columns:minmax(110px, auto) minmax(320px, 1.7fr) minmax(180px, 0.9fr) minmax(180px, 0.95fr) 110px minmax(280px, 1fr) auto;
+      gap:12px;
+      align-items:end;
+      margin-bottom:28px;
+    }
+    .create-toolbar > button { align-self:end; }
     .history-toggle { display:flex; align-items:center; gap:8px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; background:var(--surface); border-radius: 8px; overflow:hidden; }
     th, td { padding:12px; border-bottom: 1px solid var(--border); text-align:left; vertical-align:top; }
@@ -1259,9 +1270,9 @@ def ui() -> str:
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
-      .create-toolbar { align-items:stretch; margin-bottom:0; }
+      .create-toolbar { display:grid; grid-template-columns:1fr; align-items:stretch; margin-bottom:0; }
       .field-user { min-height:auto; padding:0; }
-      .port-input, .ttl-field { width:100%; flex:1 1 auto; margin-right:0; }
+      .port-input, .ttl-field { width:100%; }
       .advanced-grid { grid-template-columns:1fr; }
       .image-picker { width:100%; min-width:0; }
       .image-links { position:static; }
@@ -1307,9 +1318,13 @@ def ui() -> str:
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
     <div class=\"toolbar create-toolbar\">
-      <div class=\"field-user\"><span>User</span><strong id=\"userLabel\">-</strong></div>
+      <div class=\"create-field\">
+        <label>User</label>
+        <div class=\"field-user\"><strong id=\"userLabel\">-</strong></div>
+      </div>
       <input id=\"user\" type=\"hidden\" />
-      <div class=\"image-picker\">
+      <div class=\"create-field image-picker\">
+        <label for=\"image\">Image</label>
         <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
         <datalist id=\"imageSuggestions\"></datalist>
         <div class=\"small image-links\">
@@ -1317,20 +1332,31 @@ def ui() -> str:
           <a href=\"https://hub.docker.com/r/liferay/dxp/tags\" target=\"_blank\" rel=\"noreferrer\">Liferay Docker</a>
         </div>
       </div>
-      <select id=\"profile\">
-        <option value=\"small\">small · 4 GB</option>
-        <option value=\"standard\" selected>standard · 6 GB</option>
-        <option value=\"large\">large · 8 GB</option>
-        <option value=\"super_large\">super large · 10 GB</option>
-      </select>
-      <select id=\"db_mode\" onchange=\"syncDbFields()\">
-        <option value=\"none\" selected>No external DB</option>
-        <option value=\"external\">External DB</option>
-      </select>
-      <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
-      <div class=\"ttl-field\">
-        <input id=\"ttl\" placeholder=\"blank = idle cleanup, 0 = manual delete\" inputmode=\"numeric\" />
-        <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span>
+      <div class=\"create-field\">
+        <label for=\"profile\">Profile</label>
+        <select id=\"profile\">
+          <option value=\"small\">small · 4 GB</option>
+          <option value=\"standard\" selected>standard · 6 GB</option>
+          <option value=\"large\">large · 8 GB</option>
+          <option value=\"super_large\">super large · 10 GB</option>
+        </select>
+      </div>
+      <div class=\"create-field\">
+        <label for=\"db_mode\">Database</label>
+        <select id=\"db_mode\" onchange=\"syncDbFields()\">
+          <option value=\"none\" selected>No external DB</option>
+          <option value=\"external\">External DB</option>
+        </select>
+      </div>
+      <div class=\"create-field\">
+        <label for=\"port\">Port</label>
+        <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
+      </div>
+      <div class=\"create-field\">
+        <label for=\"ttl\" class=\"label-inline\">Time to live <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span></label>
+        <div class=\"ttl-field\">
+          <input id=\"ttl\" placeholder=\"blank = idle cleanup, 0 = manual delete\" inputmode=\"numeric\" />
+        </div>
       </div>
       <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
