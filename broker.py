@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import html
 import json
 import os
 import re
@@ -784,6 +785,12 @@ app = FastAPI(title="Liferay Local Environment Broker", version="2.0.0")
 docker_tag_cache: Dict[str, Any] = {"expires_at": 0, "data": None}
 
 
+def default_portal_properties_placeholder() -> str:
+    items = broker.config.get("default_portal_properties") or DEFAULT_PORTAL_PROPERTIES
+    lines = [f"{key}={value}" for key, value in items]
+    return html.escape("\n".join(lines), quote=True)
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -881,7 +888,8 @@ def liferay_dxp_tags(authorization: Optional[str] = Header(default=None)) -> Dic
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui() -> str:
-    return """<!doctype html>
+    props_placeholder = default_portal_properties_placeholder()
+    html_page = """<!doctype html>
   <html lang=\"en\">
 <head>
   <meta charset=\"utf-8\" />
@@ -1341,7 +1349,7 @@ def ui() -> str:
     <details class=\"advanced-panel\">
       <summary>Advanced portal-ext.properties</summary>
       <p class=\"small\">Use standard `.properties` syntax, one property per line. Broker defaults already disable setup and password-change prompts.</p>
-      <textarea id=\"props\" placeholder=\"feature.flag.LPD-12345=true&#10;feature.flag.LPD-12345.system=true\" rows=\"5\"></textarea>
+      <textarea id=\"props\" placeholder=\"__PROPS_PLACEHOLDER__\" rows=\"5\"></textarea>
     </details>
   </div>
 
@@ -1737,3 +1745,4 @@ if ($("token").value) loadAll();
 </script>
 </body>
 </html>"""
+    return html_page.replace("__PROPS_PLACEHOLDER__", props_placeholder)
