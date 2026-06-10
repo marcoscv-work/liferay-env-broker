@@ -7,6 +7,7 @@ import secrets
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import uuid
@@ -19,7 +20,7 @@ from urllib.parse import urlparse
 
 import requests
 import yaml
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -280,6 +281,48 @@ class Broker:
             "status": record["status"],
             "tail": safe_tail,
             "logs": output,
+        }
+
+    DEPLOY_EXTENSIONS = {".war", ".lar", ".jar", ".zip"}
+
+    def deploy_artifact(self, env_id: str, token_user: str, filename: str, content: bytes) -> Dict[str, Any]:
+        record = self.get_environment(env_id, token_user)
+        safe_name = os.path.basename(filename or "").strip()
+        if not safe_name or safe_name in (".", ".."):
+            raise HTTPException(status_code=400, detail="Invalid file name")
+        ext = os.path.splitext(safe_name)[1].lower()
+        if ext not in self.DEPLOY_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="Only .war, .lar, .jar or .zip files can be deployed")
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty file")
+        container_name = record["container_name"]
+        if not self._docker_container_running(container_name):
+            raise HTTPException(status_code=409, detail="Container is not running")
+        tmp_dir = tempfile.mkdtemp(prefix="deploy-")
+        tmp_path = os.path.join(tmp_dir, safe_name)
+        try:
+            with open(tmp_path, "wb") as f:
+                f.write(content)
+            # docker cp preserves the source uid/gid (broker runs as root); make the
+            # artifact world-readable so the in-container liferay user can pick it up.
+            os.chmod(tmp_path, 0o644)
+            cp = self._docker(
+                ["cp", tmp_path, f"{container_name}:/opt/liferay/deploy/{safe_name}"],
+                check=False,
+            )
+            if cp.returncode != 0:
+                detail = (cp.stderr or cp.stdout or "").strip() or "docker cp failed"
+                raise HTTPException(status_code=500, detail=f"Could not copy file into container: {detail}")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        self.mark_access(env_id, reason="deploy_upload")
+        return {
+            "id": record["id"],
+            "container_name": container_name,
+            "filename": safe_name,
+            "size_bytes": len(content),
+            "deploy_path": f"/opt/liferay/deploy/{safe_name}",
+            "message": "File copied to the Liferay deploy folder. Watch the container logs for the deployment result.",
         }
 
     def _get_system_memory(self) -> Dict[str, int]:
@@ -826,6 +869,17 @@ def environment_logs(environment_id: str, tail: int = 300, authorization: Option
     return broker.container_logs(environment_id, token_user, tail=tail)
 
 
+@app.post("/v1/environments/{environment_id}/deploy")
+async def deploy_to_environment(
+    environment_id: str,
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    token_user = broker.authenticate(authorization)
+    content = await file.read()
+    return broker.deploy_artifact(environment_id, token_user, file.filename or "", content)
+
+
 @app.post("/v1/environments")
 def create_environment(req: CreateEnvironmentRequest, authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     token_user = broker.authenticate(authorization)
@@ -1161,6 +1215,22 @@ def ui() -> str:
       flex-wrap: wrap;
     }
     .modal-title { margin: 0; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .dropzone.dragover { border-color: #6b8afd; background: rgba(107, 138, 253, 0.08); }
+    .deploy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+    .deploy-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; }
+    .deploy-list .ok { color: #3fa34d; }
+    .deploy-list .err { color: #e5534b; }
     .log-output {
       margin: 0;
       padding: 12px;
@@ -1421,6 +1491,28 @@ def ui() -> str:
     </div>
   </div>
 
+  <div id=\"deployModal\" class=\"modal-backdrop\" onclick=\"closeDeploy(event)\">
+    <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"deployTitle\">
+      <div class=\"modal-header\">
+        <div>
+          <h3 id=\"deployTitle\" class=\"modal-title\">Deploy to environment</h3>
+          <div id=\"deployMeta\" class=\"small\"></div>
+        </div>
+        <button class=\"secondary\" type=\"button\" onclick=\"closeDeploy()\">Close</button>
+      </div>
+      <div id=\"deployDropzone\" class=\"dropzone\" ondragover=\"deployDragOver(event)\" ondragleave=\"deployDragLeave(event)\" ondrop=\"deployDrop(event)\">
+        <strong>Drag your .war / .lar / .jar / .zip here</strong>
+        <div class=\"small\">or</div>
+        <button class=\"secondary\" type=\"button\" onclick=\"$('deployFileInput').click()\">Choose file</button>
+        <input id=\"deployFileInput\" type=\"file\" accept=\".war,.lar,.jar,.zip\" multiple style=\"display:none\" onchange=\"handleDeployFiles(this.files)\" />
+      </div>
+      <ul id=\"deployList\" class=\"deploy-list\"></ul>
+      <div class=\"modal-actions\">
+        <div class=\"small\">Open <strong>Logs</strong> to watch Liferay auto-deploy the artifact.</div>
+      </div>
+    </div>
+  </div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const storageKeys = {
@@ -1431,6 +1523,7 @@ const storageKeys = {
 };
 let imageSuggestionsLoaded = false;
 let activeLogsEnvironmentId = null;
+let activeDeployEnvironmentId = null;
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   const toggle = $("themeToggle");
@@ -1667,6 +1760,7 @@ function renderRows(items) {
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
           <button class=\"secondary has-tooltip\" data-tooltip=\"Shows the latest logs from this Liferay container.\" onclick=\"openLogs('${item.id}')\">Logs</button>
+          <button class=\"secondary has-tooltip\" data-tooltip=\"Drag a .war/.lar/.jar/.zip to hot-deploy it into this Liferay deploy folder.\" onclick=\"openDeploy('${item.id}', '${item.container_name}')\">Deploy</button>
           <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}')\">Delete</button>
         </div>
       </td>
@@ -1778,6 +1872,57 @@ function closeLogs(event) {
   if (event && event.target && event.target !== $("logsModal")) return;
   $("logsModal").classList.remove("visible");
   activeLogsEnvironmentId = null;
+}
+function openDeploy(id, containerName) {
+  activeDeployEnvironmentId = id;
+  $("deployMeta").textContent = containerName || id;
+  $("deployList").innerHTML = "";
+  $("deployFileInput").value = "";
+  $("deployModal").classList.add("visible");
+}
+function closeDeploy(event) {
+  if (event && event.target && event.target !== $("deployModal")) return;
+  $("deployModal").classList.remove("visible");
+  activeDeployEnvironmentId = null;
+}
+function deployDragOver(e) { e.preventDefault(); $("deployDropzone").classList.add("dragover"); }
+function deployDragLeave(e) { e.preventDefault(); $("deployDropzone").classList.remove("dragover"); }
+function deployDrop(e) {
+  e.preventDefault();
+  $("deployDropzone").classList.remove("dragover");
+  if (e.dataTransfer && e.dataTransfer.files) handleDeployFiles(e.dataTransfer.files);
+}
+function handleDeployFiles(files) {
+  if (!activeDeployEnvironmentId) return;
+  Array.from(files).forEach(uploadArtifact);
+}
+async function uploadArtifact(file) {
+  const id = activeDeployEnvironmentId;
+  const li = document.createElement("li");
+  const name = document.createElement("span");
+  name.textContent = file.name;
+  const state = document.createElement("span");
+  state.className = "small";
+  state.textContent = "uploading…";
+  li.appendChild(name);
+  li.appendChild(state);
+  $("deployList").appendChild(li);
+  try {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const res = await fetch(`${brokerBaseUrl()}/v1/environments/${id}/deploy`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Authorization": `Bearer ${$("token").value}` },
+      body: form
+    });
+    if (!res.ok) throw new Error(formatApiError(await res.text(), res.status));
+    state.textContent = "✓ copied to deploy/";
+    state.className = "small ok";
+  } catch (e) {
+    state.textContent = "✕ " + e.message;
+    state.className = "small err";
+  }
 }
 setInterval(() => { if ($("token").value) loadAll(); }, 5000);
 if ($("token").value) loadAll();
