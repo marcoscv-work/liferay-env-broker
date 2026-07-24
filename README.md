@@ -200,7 +200,8 @@ Dashboard behavior:
 - After connecting, the token card is hidden and a compact session card shows the connected user and broker endpoint.
 - `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
-- The image field starts with `liferay/dxp:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
+- The image field starts with `liferay/portal:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
+- The UI explicitly recommends `liferay/portal:*` for no-license environments and keeps `liferay/dxp:*` available for cases where you will deploy a DXP activation key.
 - The create row uses compact labels for `User`, `Image`, `Profile`, `Database`, `Port`, and `Time to live`.
 - Environment variables JSON is collapsed by default, and external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax. Its placeholder shows the current broker defaults so users can see what is already injected.
@@ -211,6 +212,7 @@ Dashboard behavior:
 - Newer environments are shown first.
 - On small screens, the environment table has its own horizontal scroll area.
 - `Logs` opens a lightweight modal with the latest Docker logs for that container and a manual refresh button.
+- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml` files, so DXP activation keys can be copied to `/opt/liferay/deploy` directly from the UI.
 
 Environment actions:
 

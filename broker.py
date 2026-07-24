@@ -283,7 +283,7 @@ class Broker:
             "logs": output,
         }
 
-    DEPLOY_EXTENSIONS = {".war", ".lar", ".jar", ".zip"}
+    DEPLOY_EXTENSIONS = {".war", ".lar", ".jar", ".zip", ".xml"}
 
     def deploy_artifact(self, env_id: str, token_user: str, filename: str, content: bytes) -> Dict[str, Any]:
         record = self.get_environment(env_id, token_user)
@@ -292,7 +292,7 @@ class Broker:
             raise HTTPException(status_code=400, detail="Invalid file name")
         ext = os.path.splitext(safe_name)[1].lower()
         if ext not in self.DEPLOY_EXTENSIONS:
-            raise HTTPException(status_code=400, detail="Only .war, .lar, .jar or .zip files can be deployed")
+            raise HTTPException(status_code=400, detail="Only .war, .lar, .jar, .zip or .xml files can be deployed")
         if not content:
             raise HTTPException(status_code=400, detail="Empty file")
         container_name = record["container_name"]
@@ -1405,12 +1405,13 @@ def ui() -> str:
       <input id=\"user\" type=\"hidden\" />
       <div class=\"create-field image-picker\">
         <label for=\"image\">Image</label>
-        <input id=\"image\" placeholder=\"image\" value=\"liferay/dxp:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
+        <input id=\"image\" placeholder=\"image\" value=\"liferay/portal:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
         <datalist id=\"imageSuggestions\"></datalist>
         <div class=\"small image-links\">
           <button class=\"link-button\" type=\"button\" onclick=\"loadImageSuggestions(true)\">Refresh image suggestions</button>
           <a href=\"https://hub.docker.com/r/liferay/dxp/tags\" target=\"_blank\" rel=\"noreferrer\">Liferay Docker</a>
         </div>
+        <div class=\"small\">Use <code>liferay/portal:*</code> when you want an environment without a DXP activation key. Current <code>liferay/dxp:*</code> releases require an XML activation key.</div>
       </div>
       <div class=\"create-field\">
         <label for=\"profile\">Profile</label>
@@ -1501,10 +1502,10 @@ def ui() -> str:
         <button class=\"secondary\" type=\"button\" onclick=\"closeDeploy()\">Close</button>
       </div>
       <div id=\"deployDropzone\" class=\"dropzone\" ondragover=\"deployDragOver(event)\" ondragleave=\"deployDragLeave(event)\" ondrop=\"deployDrop(event)\">
-        <strong>Drag your .war / .lar / .jar / .zip here</strong>
+        <strong>Drag your .war / .lar / .jar / .zip / .xml here</strong>
         <div class=\"small\">or</div>
         <button class=\"secondary\" type=\"button\" onclick=\"$('deployFileInput').click()\">Choose file</button>
-        <input id=\"deployFileInput\" type=\"file\" accept=\".war,.lar,.jar,.zip\" multiple style=\"display:none\" onchange=\"handleDeployFiles(this.files)\" />
+        <input id=\"deployFileInput\" type=\"file\" accept=\".war,.lar,.jar,.zip,.xml\" multiple style=\"display:none\" onchange=\"handleDeployFiles(this.files)\" />
       </div>
       <ul id=\"deployList\" class=\"deploy-list\"></ul>
       <div class=\"modal-actions\">
@@ -1760,7 +1761,7 @@ function renderRows(items) {
         <div class=\"actions\">
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
           <button class=\"secondary has-tooltip\" data-tooltip=\"Shows the latest logs from this Liferay container.\" onclick=\"openLogs('${item.id}')\">Logs</button>
-          <button class=\"secondary has-tooltip\" data-tooltip=\"Drag a .war/.lar/.jar/.zip to hot-deploy it into this Liferay deploy folder.\" onclick=\"openDeploy('${item.id}', '${item.container_name}')\">Deploy</button>
+          <button class=\"secondary has-tooltip\" data-tooltip=\"Drag a .war/.lar/.jar/.zip/.xml to hot-deploy it into this Liferay deploy folder.\" onclick=\"openDeploy('${item.id}', '${item.container_name}')\">Deploy</button>
           <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}')\">Delete</button>
         </div>
       </td>

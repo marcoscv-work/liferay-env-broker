@@ -260,6 +260,7 @@ Dashboard behavior:
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - The create form shows the connected user as text instead of an editable field.
 - The create form uses compact labels for the primary controls and labels the TTL field as `Time to live`.
+- The default image in the UI is `liferay/portal:7.4.13.nightly`, which avoids DXP activation-key prompts for no-license environments.
 - Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON. Its placeholder is derived from the current broker default properties.
 - Every environment always injects broker defaults to skip setup, reminder questions, and password-change prompts; custom lines are appended after those defaults.
@@ -271,6 +272,7 @@ Dashboard behavior:
 - Created timestamps are rendered in smaller text and include remaining TTL.
 - Action buttons include delayed hover/focus tooltips.
 - `Logs` opens a modal that reads the latest Docker logs on demand and refreshes manually.
+- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml`, which covers both hot-deploy artifacts and DXP activation key files.
 
 Dashboard actions:
 
@@ -279,6 +281,7 @@ Dashboard actions:
 | `Connect` | `GET /v1/me`, `GET /v1/dashboard`, and `GET /v1/environments` | Loads token identity, summary, and environment table with the configured token. |
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
 | `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup for default ephemeral environments. |
+| `Deploy` | `POST /v1/environments/{environment_id}/deploy` | Copies a `.war`, `.lar`, `.jar`, `.zip`, or `.xml` file into `/opt/liferay/deploy` inside the container. |
 | `Logs` | `GET /v1/environments/{environment_id}/logs?tail=300` | Reads the latest Docker logs for that environment on demand. |
 | `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties and the per-environment data directory, and removes the registry record. |
 
