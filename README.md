@@ -224,6 +224,7 @@ Dashboard behavior:
 - On small screens, the environment table has its own horizontal scroll area.
 - `Logs` opens a lightweight modal with the latest Docker logs for that container and a manual refresh button.
 - `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml` files. Activation-key XML files are checked against the environment image before they are copied to `/opt/liferay/deploy`.
+- Uploaded artifacts are owned by the container's `liferay` user so Liferay can rewrite, move, and process them through Auto Deploy.
 - `Delete` asks for confirmation before stopping the container and removing its proxy and environment data.
 
 Environment actions:

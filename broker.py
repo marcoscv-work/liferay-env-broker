@@ -378,9 +378,13 @@ class Broker:
         try:
             with open(tmp_path, "wb") as f:
                 f.write(content)
-            # docker cp preserves the source uid/gid (broker runs as root); make the
-            # artifact world-readable so the in-container liferay user can pick it up.
-            os.chmod(tmp_path, 0o644)
+            # docker cp preserves source ownership. Liferay's auto deploy scanner
+            # must own the artifact because it rewrites and moves uploaded files.
+            try:
+                os.chown(tmp_path, 1000, 1000)
+                os.chmod(tmp_path, 0o644)
+            except PermissionError:
+                os.chmod(tmp_path, 0o666)
             cp = self._docker(
                 ["cp", tmp_path, f"{container_name}:/opt/liferay/deploy/{safe_name}"],
                 check=False,

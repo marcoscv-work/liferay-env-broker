@@ -278,7 +278,7 @@ Dashboard behavior:
 - Created timestamps are rendered in smaller text and include remaining TTL.
 - Action buttons include delayed hover/focus tooltips.
 - `Logs` opens a modal that reads the latest Docker logs on demand and refreshes manually.
-- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml`. Activation keys are validated against the target DXP image release line before deployment.
+- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml`. Activation keys are validated against the target DXP image release line before deployment. Uploaded files use UID/GID `1000:1000`, which allows the in-container Auto Deploy scanner to rewrite and move them.
 
 Dashboard actions:
 
