@@ -31,6 +31,8 @@ Main persisted fields:
 | `target_ip` | string | Docker-internal container IP used by the proxy. |
 | `properties_file` | string/null | Generated `portal-ext.properties` path with broker defaults plus any user-provided overrides. |
 | `data_path` | string/null | Per-environment host directory mounted into `/opt/liferay/data`. |
+| `runtime_path` | string/null | Per-environment host directory mounted into `/mnt/liferay` for startup artifacts. |
+| `dxp_license_version` | string/null | Product version of the automatically staged DXP activation key. |
 | `env` | object | Extra environment variables passed to the container. |
 | `db_mode` | string | `none` or `external`. |
 | `db_env` | object | External database variables when `db_mode=external`. |
@@ -134,6 +136,8 @@ Required keys:
 | `registry_file` | Local JSON registry path. |
 | `properties_dir` | Directory for generated `portal-ext.properties` files. |
 | `data_dir` | Directory for per-environment `/opt/liferay/data` mounts. |
+| `runtime_dir` | Directory for per-environment `/mnt/liferay` startup artifact mounts. |
+| `dxp_license_file` | Optional host-only activation-key XML path. DXP image tags must match its `product-version`. |
 | `docker_network` | Docker network passed to `docker run --network`. |
 | `default_ttl_hours` | Default TTL when the user does not request one. |
 | `max_ttl_hours` | Upper bound for requested TTL. Use `ttl_hours=0` to keep one environment until manual delete. |
@@ -143,7 +147,7 @@ Required keys:
 | `image_cleanup` | Optional Docker image prune configuration. |
 | `max_environments_per_user` | Legacy/default active environment count quota per user. |
 | `max_environments_by_user` | Optional legacy user-specific active environment count quota map. |
-| `ready_timeout_seconds` | Max time spent waiting for readiness. |
+| `ready_timeout_seconds` | Max time spent waiting for readiness. The default is 600 seconds for current DXP first starts. |
 | `ready_check_interval_seconds` | Delay between readiness checks. |
 | `idle_timeout_minutes` | Inactivity timeout before stopping the environment. |
 
@@ -260,11 +264,13 @@ Dashboard behavior:
 - After `Connect`, the `User` field is filled from the Bearer token through `GET /v1/me`.
 - The create form shows the connected user as text instead of an editable field.
 - The create form uses compact labels for the primary controls and labels the TTL field as `Time to live`.
-- The default image in the UI is `liferay/portal:7.4.13.nightly`, which avoids DXP activation-key prompts for no-license environments.
+- The image field is empty by default so users explicitly choose a Portal GA image or a licensed DXP image.
 - Environment variables JSON is collapsed by default; external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is kept in an advanced details section because it uses `.properties` syntax, not JSON. Its placeholder is derived from the current broker default properties.
 - Every environment always injects broker defaults to skip setup, reminder questions, and password-change prompts; custom lines are appended after those defaults.
-- Image suggestions are fetched from `GET /v1/images/liferay-dxp-tags`, which caches recent Docker Hub `liferay/dxp` tags briefly.
+- DXP image suggestions are fetched from `GET /v1/images/liferay-dxp-tags` and cached briefly. Results include floating nightlies plus tags compatible with the configured activation key.
+- Floating image tags (`latest`, `nightly`, and `*.nightly`) are pulled before every launch. They use the trial key bundled in the current image and never receive a configured key for another release line.
+- The configured DXP activation key is staged only for compatible fixed release tags.
 - Machine capacity is shown as used/total units, active environment count, and profile unit costs.
 - `Show history` controls whether terminal records (`deleted`, `failed`, `stopped`, `expired`) are shown.
 - The table is horizontally scrollable on small screens.
@@ -272,7 +278,7 @@ Dashboard behavior:
 - Created timestamps are rendered in smaller text and include remaining TTL.
 - Action buttons include delayed hover/focus tooltips.
 - `Logs` opens a modal that reads the latest Docker logs on demand and refreshes manually.
-- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml`, which covers both hot-deploy artifacts and DXP activation key files.
+- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml`. Activation keys are validated against the target DXP image release line before deployment.
 
 Dashboard actions:
 
@@ -281,9 +287,9 @@ Dashboard actions:
 | `Connect` | `GET /v1/me`, `GET /v1/dashboard`, and `GET /v1/environments` | Loads token identity, summary, and environment table with the configured token. |
 | `Create` | `POST /v1/environments` | Creates a new environment using the form payload. |
 | `Touch` | `POST /v1/environments/{environment_id}/touch` | Updates `last_access_at` with reason `manual_touch`, preventing idle cleanup for default ephemeral environments. |
-| `Deploy` | `POST /v1/environments/{environment_id}/deploy` | Copies a `.war`, `.lar`, `.jar`, `.zip`, or `.xml` file into `/opt/liferay/deploy` inside the container. |
+| `Deploy` | `POST /v1/environments/{environment_id}/deploy` | Copies a `.war`, `.lar`, `.jar`, `.zip`, or compatible activation-key `.xml` file into `/opt/liferay/deploy` inside the container. |
 | `Logs` | `GET /v1/environments/{environment_id}/logs?tail=300` | Reads the latest Docker logs for that environment on demand. |
-| `Delete` | `DELETE /v1/environments/{environment_id}` | Runs `docker rm -f`, stops the proxy, removes generated properties and the per-environment data directory, and removes the registry record. |
+| `Delete` | `DELETE /v1/environments/{environment_id}` | Asks for confirmation, then runs `docker rm -f`, stops the proxy, removes generated properties, data and runtime directories, and removes the registry record. |
 
 ## Auth Model
 
@@ -307,6 +313,7 @@ Rules:
 The following values can become sensitive in real deployments:
 
 - `BrokerConfig.api_tokens`
+- `BrokerConfig.dxp_license_file` and the activation-key XML it references
 - `BrokerConfig.base_url_template`, if it contains a real internal host
 - `CreateEnvironmentRequest.portal_properties`
 - `Environment.properties_file`
@@ -314,5 +321,6 @@ The following values can become sensitive in real deployments:
 - `Environment.db_env`
 - generated `registry.json`
 - generated files under `portal_properties/`
+- generated files under `runtime/`
 
 Keep real deployment values out of commits. Use placeholders in the repository and configure the installed host copy.

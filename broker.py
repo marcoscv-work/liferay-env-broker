@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import uuid
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -182,6 +183,10 @@ class Broker:
         self.properties_dir.mkdir(parents=True, exist_ok=True)
         self.data_dir = BASE_DIR / self.config.get("data_dir", "data")
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.runtime_dir = BASE_DIR / self.config.get("runtime_dir", "runtime")
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+        self.dxp_license_path = self._configured_license_path()
+        self.dxp_license_version = self._read_license_version(self.dxp_license_path) if self.dxp_license_path else None
         self.registry_lock = threading.Lock()
         self.port_lock = threading.Lock()
         self.proxies: Dict[str, EnvironmentProxy] = {}
@@ -269,6 +274,65 @@ class Broker:
         except subprocess.CalledProcessError:
             return False
 
+    def _configured_license_path(self) -> Optional[Path]:
+        configured = str(self.config.get("dxp_license_file") or "").strip()
+        if not configured:
+            return None
+        path = Path(configured)
+        if not path.is_absolute():
+            path = self.config_path.parent / path
+        if not path.is_file():
+            raise ConfigError(f"Configured DXP license file does not exist: {path}")
+        return path
+
+    @staticmethod
+    def _read_license_version(path: Path) -> str:
+        try:
+            root = ET.parse(path).getroot()
+        except (ET.ParseError, OSError) as exc:
+            raise ConfigError(f"Could not read DXP license XML {path}: {exc}") from exc
+        version = (root.findtext("product-version") or "").strip()
+        if not version:
+            raise ConfigError(f"DXP license XML does not contain product-version: {path}")
+        return version
+
+    @staticmethod
+    def _image_matches_license(image: str, license_version: str) -> bool:
+        if not image.startswith("liferay/dxp:"):
+            return True
+        tag = image.split(":", 1)[1].lower()
+        expected = license_version.lower()
+        return tag == expected or tag.startswith(f"{expected}.") or tag.startswith(f"{expected}-")
+
+    @staticmethod
+    def _is_floating_image(image: str) -> bool:
+        image_name = image.rsplit("/", 1)[-1]
+        if ":" not in image_name:
+            return True
+        tag = image_name.rsplit(":", 1)[1].lower()
+        return tag in {"latest", "nightly"} or tag.endswith(".nightly")
+
+    def _uses_configured_dxp_license(self, image: str) -> bool:
+        return bool(
+            self.dxp_license_path
+            and self.dxp_license_version
+            and image.startswith("liferay/dxp:")
+            and self._image_matches_license(image, self.dxp_license_version)
+        )
+
+    def _validate_dxp_license_image(self, image: str, license_version: Optional[str] = None) -> None:
+        version = license_version or self.dxp_license_version
+        if not version or self._image_matches_license(image, version):
+            return
+        expected = version.lower()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"The configured DXP license supports {version}, but {image} is from another release line. "
+                f"Choose liferay/dxp:{expected}.* or use a matching activation key."
+            ),
+        )
+
     def container_logs(self, env_id: str, token_user: str, tail: int = 300) -> Dict[str, Any]:
         record = self.get_environment(env_id, token_user)
         container_name = record["container_name"]
@@ -295,6 +359,17 @@ class Broker:
             raise HTTPException(status_code=400, detail="Only .war, .lar, .jar, .zip or .xml files can be deployed")
         if not content:
             raise HTTPException(status_code=400, detail="Empty file")
+        if ext == ".xml" and record["image"].startswith("liferay/dxp:"):
+            tmp_license_dir = tempfile.mkdtemp(prefix="license-check-")
+            tmp_license_path = Path(tmp_license_dir) / safe_name
+            try:
+                tmp_license_path.write_bytes(content)
+                license_version = self._read_license_version(tmp_license_path)
+                self._validate_dxp_license_image(record["image"], license_version)
+            except ConfigError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            finally:
+                shutil.rmtree(tmp_license_dir, ignore_errors=True)
         container_name = record["container_name"]
         if not self._docker_container_running(container_name):
             raise HTTPException(status_code=409, detail="Container is not running")
@@ -346,9 +421,10 @@ class Broker:
         return False
 
     def _ensure_image_available(self, image: str) -> None:
-        inspect_result = self._docker(["image", "inspect", image], check=False)
-        if inspect_result.returncode == 0:
-            return
+        if not self._is_floating_image(image):
+            inspect_result = self._docker(["image", "inspect", image], check=False)
+            if inspect_result.returncode == 0:
+                return
         pull_result = self._docker(["pull", image], check=False)
         if pull_result.returncode != 0:
             stderr = (pull_result.stderr or "").strip()
@@ -486,6 +562,27 @@ class Broker:
     def _data_path(self, env_id: str) -> Path:
         return self.data_dir / env_id
 
+    def _runtime_path(self, env_id: str) -> Path:
+        return self.runtime_dir / env_id
+
+    def _prepare_runtime(self, env_id: str, image: str) -> Path:
+        runtime_path = self._runtime_path(env_id)
+        deploy_path = runtime_path / "deploy"
+        deploy_path.mkdir(parents=True, exist_ok=True)
+        os.chmod(runtime_path, 0o777)
+        os.chmod(deploy_path, 0o777)
+        if self._uses_configured_dxp_license(image):
+            target = deploy_path / self.dxp_license_path.name
+            shutil.copy2(self.dxp_license_path, target)
+            # The container's AutoDeployDir rewrites activation-key XML files
+            # while running as uid 1000.
+            try:
+                os.chown(target, 1000, 1000)
+                os.chmod(target, 0o600)
+            except PermissionError:
+                os.chmod(target, 0o666)
+        return runtime_path
+
     def _update_record(self, updated: Dict[str, Any]) -> None:
         with self.registry_lock:
             registry = self._read_registry()
@@ -519,11 +616,14 @@ class Broker:
         return next((x for x in registry if x["id"] == env_id), None)
 
     def create_environment(self, req: CreateEnvironmentRequest, token_user: str) -> Dict[str, Any]:
+        if not self._is_floating_image(req.image):
+            self._validate_dxp_license_image(req.image)
         profile = self._check_quota(req, token_user)
         host_port = self._allocate_port(req.host_port)
         env_id = uuid.uuid4().hex[:12]
         container_name = self._make_name(req)
         properties_path = self._write_properties(env_id, req.portal_properties)
+        runtime_path = self._prepare_runtime(env_id, req.image)
         data_path = self._data_path(env_id)
         data_path.mkdir(parents=True, exist_ok=True)
         hypersonic_path = data_path / "hypersonic"
@@ -556,6 +656,8 @@ class Broker:
             "url": self.config["base_url_template"].format(port=host_port, container_name=container_name, env_id=env_id),
             "properties_file": str(properties_path) if properties_path else None,
             "data_path": str(data_path),
+            "runtime_path": str(runtime_path),
+            "dxp_license_version": self.dxp_license_version if self._uses_configured_dxp_license(req.image) else None,
             "env": {},
             "db_mode": req.db_mode,
             "db_env": req.db_env if req.db_mode == "external" else {},
@@ -584,6 +686,7 @@ class Broker:
         if properties_path:
             cmd += ["-v", f"{properties_path}:/opt/liferay/portal-ext.properties:ro"]
         cmd += ["-v", f"{data_path}:/opt/liferay/data"]
+        cmd += ["-v", f"{runtime_path}:/mnt/liferay"]
 
         extra_args = profile.get("docker_run_args", []) or []
         cmd.extend(extra_args)
@@ -654,6 +757,7 @@ class Broker:
         timeout_seconds = int(self.config["ready_timeout_seconds"])
         interval = int(self.config["ready_check_interval_seconds"])
         start = time.time()
+        last_error = f"Readiness timeout after {timeout_seconds}s"
         while time.time() - start < timeout_seconds:
             record = self._registry_record(env_id)
             if not record:
@@ -668,12 +772,17 @@ class Broker:
                 host = urlparse(record["url"]).netloc
                 resp = requests.get(target_url, headers={"Host": host}, timeout=5, allow_redirects=False)
                 if resp.status_code in [200, 302, 401, 403]:
+                    location = resp.headers.get("Location", "")
+                    if "license_activation" in location:
+                        last_error = "Liferay is waiting for a compatible DXP activation key"
+                        time.sleep(interval)
+                        continue
                     self._change_status(env_id, "ready", ready_at=iso_now(), error=None)
                     return
             except requests.RequestException:
                 pass
             time.sleep(interval)
-        self._change_status(env_id, "failed", error=f"Readiness timeout after {timeout_seconds}s")
+        self._change_status(env_id, "failed", error=last_error)
 
     def mark_access(self, env_id: str, reason: str = "access") -> None:
         record = self._registry_record(env_id)
@@ -725,6 +834,11 @@ class Broker:
         if record.get("data_path"):
             try:
                 shutil.rmtree(record["data_path"], ignore_errors=True)
+            except Exception:
+                pass
+        if record.get("runtime_path"):
+            try:
+                shutil.rmtree(record["runtime_path"], ignore_errors=True)
             except Exception:
                 pass
         record["status"] = status
@@ -914,21 +1028,52 @@ def liferay_dxp_tags(authorization: Optional[str] = Header(default=None)) -> Dic
         return docker_tag_cache["data"]
 
     source_url = "https://hub.docker.com/r/liferay/dxp/tags"
-    api_url = "https://hub.docker.com/v2/repositories/liferay/dxp/tags?page_size=12&ordering=last_updated"
+    license_version = broker.dxp_license_version
+    api_url = "https://hub.docker.com/v2/repositories/liferay/dxp/tags"
     try:
-        resp = requests.get(api_url, timeout=8)
-        resp.raise_for_status()
-        payload = resp.json()
-        tags = [
-            {
-                "name": item["name"],
-                "image": f"liferay/dxp:{item['name']}",
-                "last_updated": item.get("last_updated"),
-            }
-            for item in payload.get("results", [])
-            if item.get("name")
-        ]
-        data = {"repository": "liferay/dxp", "source_url": source_url, "tags": tags}
+        queries = ["nightly"]
+        if license_version:
+            queries.append(license_version.lower())
+
+        items: List[Dict[str, Any]] = []
+        for query in queries:
+            resp = requests.get(
+                api_url,
+                params={"page_size": 50, "ordering": "last_updated", "name": query},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            items.extend(resp.json().get("results", []))
+
+        tags = []
+        seen = set()
+        for item in items:
+            name = item.get("name")
+            if not name or name in seen:
+                continue
+            image = f"liferay/dxp:{name}"
+            is_floating = broker._is_floating_image(image)
+            is_license_compatible = bool(
+                license_version and broker._image_matches_license(image, license_version)
+            )
+            if not is_floating and not is_license_compatible:
+                continue
+            seen.add(name)
+            tags.append(
+                {
+                    "name": name,
+                    "image": image,
+                    "last_updated": item.get("last_updated"),
+                    "license_mode": "bundled_trial" if is_floating else "configured_key",
+                }
+            )
+        data = {
+            "repository": "liferay/dxp",
+            "source_url": source_url,
+            "license_version": license_version,
+            "floating_tags_always_pulled": True,
+            "tags": tags,
+        }
         docker_tag_cache["data"] = data
         docker_tag_cache["expires_at"] = now + 300
         return data
@@ -1128,6 +1273,8 @@ def ui() -> str:
     .ttl-field { position:relative; display:flex; align-items:center; gap:6px; width:100%; }
     .ttl-field input { width:100%; min-width:0; }
     .info-icon {
+      position:relative;
+      z-index:30;
       width:18px;
       height:18px;
       display:inline-flex;
@@ -1158,7 +1305,7 @@ def ui() -> str:
     .image-picker { display:grid; gap:6px; min-width:280px; position:relative; }
     .image-picker input { width:100%; }
     .image-links { position:absolute; top:calc(100% + 6px); left:0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; line-height:1; }
-    .create-toolbar {
+    .toolbar.create-toolbar {
       display:grid;
       grid-template-columns:minmax(110px, auto) minmax(320px, 1.7fr) minmax(180px, 0.9fr) minmax(180px, 0.95fr) 110px minmax(280px, 1fr) auto;
       gap:12px;
@@ -1285,41 +1432,64 @@ def ui() -> str:
       z-index: 21;
     }
     .has-tooltip:hover::before,
+    .has-tooltip:focus::before,
     .has-tooltip:focus-visible::before {
       opacity: 1;
       transform: translate(0, -50%);
     }
     .has-tooltip:hover::after,
+    .has-tooltip:focus::after,
     .has-tooltip:focus-visible::after {
       opacity: 1;
       transform: translate(0, -50%);
     }
-    .ttl-field .has-tooltip::before {
+    .field-label-row .has-tooltip::before {
       top: calc(100% + 10px);
-      right: 0;
+      right:auto;
+      left:50%;
+      width:min(280px, calc(100vw - 48px));
       max-width: 280px;
-      transform: translateY(-4px);
+      transform: translate(-50%, -4px);
     }
-    .ttl-field .has-tooltip::after {
+    .field-label-row .has-tooltip::after {
       top: calc(100% + 3px);
-      right: 8px;
+      right:auto;
+      left:50%;
       border-left: 7px solid transparent;
       border-right: 7px solid transparent;
       border-bottom: 7px solid var(--surface);
       border-top: 0;
-      transform: translateY(-4px);
+      transform: translate(-50%, -4px);
     }
-    .ttl-field .has-tooltip:hover::before,
-    .ttl-field .has-tooltip:focus-visible::before,
-    .ttl-field .has-tooltip:hover::after,
-    .ttl-field .has-tooltip:focus-visible::after {
-      transform: translateY(0);
+    .field-label-row .has-tooltip:hover::before,
+    .field-label-row .has-tooltip:focus::before,
+    .field-label-row .has-tooltip:focus-visible::before,
+    .field-label-row .has-tooltip:hover::after,
+    .field-label-row .has-tooltip:focus::after,
+    .field-label-row .has-tooltip:focus-visible::after {
+      transform: translate(-50%, 0);
     }
     @media (min-width: 1800px) {
       .cards {
         grid-template-columns:repeat(6, minmax(0, 1fr));
         grid-template-areas:"capacity capacity capacity ram total total";
       }
+    }
+    @media (max-width: 1500px) {
+      .toolbar.create-toolbar {
+        grid-template-columns:minmax(100px, 0.55fr) minmax(300px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr);
+        grid-template-areas:
+          "user image profile database"
+          "port ttl ttl create";
+        row-gap:32px;
+      }
+      .create-user { grid-area:user; }
+      .image-picker { grid-area:image; }
+      .create-profile { grid-area:profile; }
+      .create-database { grid-area:database; }
+      .create-port { grid-area:port; }
+      .create-ttl { grid-area:ttl; }
+      .create-submit { grid-area:create; justify-self:end; }
     }
     @media (max-width: 980px) {
       .cards {
@@ -1330,6 +1500,17 @@ def ui() -> str:
       }
       .connect-card { grid-template-columns: 1fr; align-items:stretch; }
       .connect-card button { width: 100%; }
+    }
+    @media (max-width: 900px) {
+      .toolbar.create-toolbar {
+        grid-template-columns:minmax(110px, 0.65fr) minmax(280px, 1.35fr);
+        grid-template-areas:
+          "user image"
+          "profile database"
+          "port ttl"
+          "create create";
+      }
+      .create-submit { width:100%; justify-self:stretch; }
     }
     @media (max-width: 820px) {
       .cards {
@@ -1350,7 +1531,21 @@ def ui() -> str:
       .metric-line { white-space:normal; }
       .toolbar { align-items: stretch; }
       .toolbar input, .toolbar select, .toolbar textarea, .toolbar button { width: 100%; min-width: 0 !important; }
-      .create-toolbar { display:grid; grid-template-columns:1fr; align-items:stretch; margin-bottom:0; }
+      .toolbar.create-toolbar {
+        display:grid;
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "user"
+          "image"
+          "profile"
+          "database"
+          "port"
+          "ttl"
+          "create";
+        row-gap:12px;
+        align-items:stretch;
+        margin-bottom:0;
+      }
       .field-user { min-height:auto; padding:0; }
       .port-input, .ttl-field { width:100%; }
       .advanced-grid { grid-template-columns:1fr; }
@@ -1398,22 +1593,22 @@ def ui() -> str:
   <div class=\"card\" style=\"margin-bottom:16px\">
     <h2 style=\"margin-top:0\">Create Environment</h2>
     <div class=\"toolbar create-toolbar\">
-      <div class=\"create-field\">
+      <div class=\"create-field create-user\">
         <label>User</label>
         <div class=\"field-user\"><strong id=\"userLabel\">-</strong></div>
       </div>
       <input id=\"user\" type=\"hidden\" />
       <div class=\"create-field image-picker\">
         <label for=\"image\">Image</label>
-        <input id=\"image\" placeholder=\"image\" value=\"liferay/portal:7.4.13.nightly\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
+        <input id=\"image\" placeholder=\"Choose or enter an image\" list=\"imageSuggestions\" onfocus=\"loadImageSuggestions()\" />
         <datalist id=\"imageSuggestions\"></datalist>
         <div class=\"small image-links\">
           <button class=\"link-button\" type=\"button\" onclick=\"loadImageSuggestions(true)\">Refresh image suggestions</button>
-          <a href=\"https://hub.docker.com/r/liferay/dxp/tags\" target=\"_blank\" rel=\"noreferrer\">Liferay Docker</a>
+          <a href=\"https://hub.docker.com/r/liferay/portal/tags\" target=\"_blank\" rel=\"noreferrer\">Portal images</a>
+          <a href=\"https://hub.docker.com/r/liferay/dxp/tags\" target=\"_blank\" rel=\"noreferrer\">DXP images</a>
         </div>
-        <div class=\"small\">Use <code>liferay/portal:*</code> when you want an environment without a DXP activation key. Current <code>liferay/dxp:*</code> releases require an XML activation key.</div>
       </div>
-      <div class=\"create-field\">
+      <div class=\"create-field create-profile\">
         <label for=\"profile\">Profile</label>
         <select id=\"profile\">
           <option value=\"small\">small · 4 GB</option>
@@ -1422,18 +1617,18 @@ def ui() -> str:
           <option value=\"super_large\">super large · 10 GB</option>
         </select>
       </div>
-      <div class=\"create-field\">
+      <div class=\"create-field create-database\">
         <label for=\"db_mode\">Database</label>
         <select id=\"db_mode\" onchange=\"syncDbFields()\">
           <option value=\"none\" selected>No external DB</option>
           <option value=\"external\">External DB</option>
         </select>
       </div>
-      <div class=\"create-field\">
+      <div class=\"create-field create-port\">
         <label for=\"port\">Port</label>
         <input id=\"port\" class=\"port-input\" placeholder=\"port\" maxlength=\"5\" inputmode=\"numeric\" />
       </div>
-      <div class=\"create-field\">
+      <div class=\"create-field create-ttl\">
         <div class=\"field-label-row\">
           <label for=\"ttl\">Time to live</label>
           <span class=\"info-icon has-tooltip\" tabindex=\"0\" data-tooltip=\"Leave empty for the default ephemeral mode: the environment expires after the default TTL or after 60 minutes without access. Enter 1-120 for a fixed max lifetime without idle cleanup. Enter 0 to keep it until manual delete.\">i</span>
@@ -1442,7 +1637,7 @@ def ui() -> str:
           <input id=\"ttl\" placeholder=\"blank = idle cleanup, 0 = manual delete\" inputmode=\"numeric\" />
         </div>
       </div>
-      <button id=\"createButton\" onclick=\"createEnv()\">Create</button>
+      <button class=\"create-submit\" id=\"createButton\" onclick=\"createEnv()\">Create</button>
     </div>
     <details class=\"advanced-panel\">
       <summary>Environment variables JSON</summary>
@@ -1762,7 +1957,7 @@ function renderRows(items) {
           <button class=\"secondary has-tooltip\" data-tooltip=\"Updates last access time so this environment is not stopped by the inactivity timeout.\" onclick=\"touchEnv('${item.id}')\">Touch</button>
           <button class=\"secondary has-tooltip\" data-tooltip=\"Shows the latest logs from this Liferay container.\" onclick=\"openLogs('${item.id}')\">Logs</button>
           <button class=\"secondary has-tooltip\" data-tooltip=\"Drag a .war/.lar/.jar/.zip/.xml to hot-deploy it into this Liferay deploy folder.\" onclick=\"openDeploy('${item.id}', '${item.container_name}')\">Deploy</button>
-          <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}')\">Delete</button>
+          <button class=\"has-tooltip\" data-tooltip=\"Stops and removes the Docker container, shuts down its proxy, and removes it from this list.\" onclick=\"deleteEnv('${item.id}', '${item.container_name}')\">Delete</button>
         </div>
       </td>
     </tr>
@@ -1817,8 +2012,13 @@ async function createEnv() {
     setButtonBusy("createButton", false);
   }
 }
-async function deleteEnv(id) {
+async function deleteEnv(id, containerName) {
+  const confirmed = window.confirm(
+    `Delete ${containerName || id}?\\n\\nThis will stop and remove its Docker container, proxy, and environment data.`
+  );
+  if (!confirmed) return;
   try {
+    setMessage(`Deleting ${containerName || id}...`);
     await api(`/v1/environments/${id}`, {method:'DELETE'});
     await loadAll();
   } catch (e) {

@@ -100,6 +100,16 @@ Change at least:
 - `api_tokens`: replace placeholder values with real per-user tokens.
 - `base_url_template`: set the URL users should receive, for example `http://BROKER_HOST:{port}` using a hostname, DNS name, or internal address reachable from developer machines.
 
+To license DXP environments automatically, store the activation key outside the repository and configure its absolute path:
+
+```yaml
+dxp_license_file: /opt/liferay-env-broker/secrets/activation-key.xml
+```
+
+The activation key release must match the Docker image release. For example, a `2026.Q2` key works with `liferay/dxp:2026.q2.*`. Floating tags such as `liferay/dxp:7.4.13.nightly` and `latest` are always pulled before launch and use the trial key bundled in the current image; the configured quarterly key is not injected into them.
+
+Current DXP releases can take several minutes to initialize bundled sites and themes. Keep `ready_timeout_seconds` at `600` or higher, and do not treat redirects to `/c/portal/license_activation` as ready.
+
 You do not need to commit any real host address. The only people who need the actual broker URL are the users running the CLI or opening the UI.
 
 Useful settings:
@@ -200,8 +210,9 @@ Dashboard behavior:
 - After connecting, the token card is hidden and a compact session card shows the connected user and broker endpoint.
 - `Bearer token`, user, theme, and history preference are saved in browser `localStorage`.
 - After connecting, the `User` field is filled from the Bearer token to avoid mismatches.
-- The image field starts with `liferay/portal:7.4.13.nightly`, offers recent `liferay/dxp` tags from Docker Hub, and links to the Liferay Docker tag catalog.
-- The UI explicitly recommends `liferay/portal:*` for no-license environments and keeps `liferay/dxp:*` available for cases where you will deploy a DXP activation key.
+- The image field starts empty so users must explicitly choose or enter an image. It offers current floating nightlies and DXP tags compatible with the configured activation key, with links to both image catalogs.
+- Portal GA images do not require a DXP activation key. Floating DXP nightlies are pulled before every launch and use their bundled trial key.
+- When `dxp_license_file` is configured, the broker installs it only into matching fixed DXP releases. For example, a `2026.Q2` key is installed into `liferay/dxp:2026.q2.*`, but not into `liferay/dxp:7.4.13.nightly`.
 - The create row uses compact labels for `User`, `Image`, `Profile`, `Database`, `Port`, and `Time to live`.
 - Environment variables JSON is collapsed by default, and external DB variables are shown only when `External DB` is selected.
 - `portal-ext.properties` is available in the advanced section and uses normal `.properties` syntax. Its placeholder shows the current broker defaults so users can see what is already injected.
@@ -212,7 +223,8 @@ Dashboard behavior:
 - Newer environments are shown first.
 - On small screens, the environment table has its own horizontal scroll area.
 - `Logs` opens a lightweight modal with the latest Docker logs for that container and a manual refresh button.
-- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml` files, so DXP activation keys can be copied to `/opt/liferay/deploy` directly from the UI.
+- `Deploy` accepts `.war`, `.lar`, `.jar`, `.zip`, and `.xml` files. Activation-key XML files are checked against the environment image before they are copied to `/opt/liferay/deploy`.
+- `Delete` asks for confirmation before stopping the container and removing its proxy and environment data.
 
 Environment actions:
 
@@ -251,7 +263,7 @@ Create an environment:
 
 ```bash
 python3 client.py create \
-  --image liferay/dxp:7.4.13.nightly-slim-d10.0.29-20260421050955 \
+  --image liferay/dxp:2026.q2.8-d10.0.65-20260717094633 \
   --profile standard
 ```
 
@@ -372,6 +384,8 @@ The broker writes runtime state locally:
 - `registry.json`: environment inventory and metadata.
 - `portal_properties/`: generated `portal-ext.properties` files when provided.
 - `data/`: per-environment persistent runtime data directories mounted to `/opt/liferay/data` and removed on environment deletion.
+- `runtime/`: per-environment `/mnt/liferay` staging directories, including an automatic copy of the configured DXP activation key for compatible fixed releases. They are removed on environment deletion.
+- `secrets/`: recommended location for activation keys and other host-only secrets.
 
 These paths are ignored by Git because they can contain user names, internal URLs, environment variables, database settings, or other deployment-specific data.
 
@@ -383,6 +397,7 @@ The repository should only contain placeholders:
 - No real broker URL.
 - No generated `registry.json`.
 - No generated `portal_properties/`.
+- No activation-key XML files or `secrets/` directory.
 - No real database credentials in examples.
 
 ## Current Limitations

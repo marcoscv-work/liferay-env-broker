@@ -33,6 +33,9 @@ base_url_template: http://BROKER_HOST:{port}
 registry_file: registry.json
 properties_dir: portal_properties
 data_dir: data
+runtime_dir: runtime
+# Keep activation keys outside the repository and set an absolute path here.
+dxp_license_file:
 default_portal_properties:
 - - virtual.hosts.valid.hosts
   - localhost,127.0.0.1,[::1],[0:0:0:0:0:0:0:1],192.168.0.*
@@ -76,7 +79,7 @@ docker_network: bridge
 default_ttl_hours: 8
 max_ttl_hours: 120
 cleanup_interval_seconds: 30
-ready_timeout_seconds: 300
+ready_timeout_seconds: 600
 ready_check_interval_seconds: 5
 idle_timeout_minutes: 60
 ram_buffer_mb: 4096

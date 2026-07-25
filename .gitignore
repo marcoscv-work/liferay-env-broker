@@ -11,3 +11,6 @@ data/*.sqlite
 registry.json
 registry.tmp
 portal_properties/
+runtime/
+secrets/
+activation-key-*.xml
